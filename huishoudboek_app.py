@@ -86,8 +86,7 @@ with st.sidebar:
     if st.button("🔄 Herstel standaard"):
         st.session_state.start_datum = standaard_van
         st.session_state.eind_datum = standaard_tot
-        st.experimental_rerun()
-
+        st.rerun()
 
 df_filtered = df[(df['datum'] >= pd.to_datetime(start_datum)) & (df['datum'] <= pd.to_datetime(eind_datum))]
 st.write("🔍 Aantal gefilterde rijen:", len(df_filtered))
