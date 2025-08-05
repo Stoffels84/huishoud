@@ -20,15 +20,36 @@ def laad_data():
 
         df['datum'] = pd.to_datetime(df['datum'], errors='coerce')
         df['bedrag'] = pd.to_numeric(df['bedrag'], errors='coerce')
-        df['categorie'] = df['categorie'].astype(str).str.strip().str.title()
+        df['categorie'] = (
+            df['categorie']
+            .astype(str)
+            .str.strip()
+            .str.lower()
+            .str.replace(r'\s+', ' ', regex=True)
+        )
+
+        # Specifieke normalisatie
+        df['categorie'] = df['categorie'].replace({
+            'inkomsten loon': 'inkomsten loon',
+            'loon inkomsten': 'inkomsten loon',
+            'loon': 'inkomsten loon',
+            'inkomst loon': 'inkomsten loon'
+        })
+
         df['vast/variabel'] = df.get('vast/variabel', 'Onbekend').astype(str).str.strip().str.title()
 
+        # Drop lege of ongeldige waarden
         df = df.dropna(subset=['datum', 'bedrag'])
+
+        # Voeg maand toe
         df['maand'] = df['datum'].dt.month
         df['maand_naam'] = df['datum'].dt.month.apply(lambda x: calendar.month_name[x])
 
+        # Log voor controle
         st.success("✅ Data geladen!")
         st.write("📄 Voorbeeld data:", df.head())
+        st.write("📋 Unieke categorieën:", df['categorie'].unique())
+        st.write("📊 Aantal rijen met 'inkomsten loon':", df[df['categorie'] == 'inkomsten loon'].shape[0])
 
         return df
 
@@ -66,8 +87,8 @@ col3.metric("📉 Uitgaven", f"€ {uitgaven:,.2f}")
 maand_volgorde = list(calendar.month_name)[1:] + ['Totaal']
 df_filtered['maand_naam'] = pd.Categorical(df_filtered['maand_naam'], categories=maand_volgorde[:-1], ordered=True)
 
-# ➕ INKOMSTEN: enkel 'Inkomsten Loon'
-df_inkomen = df_filtered[df_filtered['categorie'] == 'Inkomsten Loon']
+# ➕ INKOMSTEN: enkel 'inkomsten loon'
+df_inkomen = df_filtered[df_filtered['categorie'] == 'inkomsten loon']
 pivot_inkomen = pd.pivot_table(
     df_inkomen,
     index=['vast/variabel', 'categorie'],
@@ -83,8 +104,8 @@ pivot_inkomen = pivot_inkomen.reindex(columns=[m for m in maand_volgorde if m in
 st.subheader("📈 Inkomsten")
 st.dataframe(pivot_inkomen, use_container_width=True)
 
-# ➖ UITGAVEN: alles behalve 'Inkomsten Loon'
-df_uitgaven = df_filtered[df_filtered['categorie'] != 'Inkomsten Loon']
+# ➖ UITGAVEN: alles behalve 'inkomsten loon'
+df_uitgaven = df_filtered[df_filtered['categorie'] != 'inkomsten loon']
 pivot_uitgaven = pd.pivot_table(
     df_uitgaven,
     index=['vast/variabel', 'categorie'],
