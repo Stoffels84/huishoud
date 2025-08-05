@@ -9,7 +9,7 @@ from pandas.api.types import CategoricalDtype
 # ----------------------------
 # 🔧 Pagina-instellingen
 # ----------------------------
-st.set_page_config(page_title="Huishoudboekje")
+st.set_page_config(page_title="Huishoudboekje", layout="wide")
 st.title("📊 Huishoudboekje Dashboard")
 
 # ----------------------------
@@ -102,12 +102,11 @@ totaal_saldo = inkomen + vast_saldo + variabel_saldo
 
 def pct(v, t): return f"{(v/t*100):.1f}%" if t != 0 else "0%"
 
-with st.container():
-    st.metric("📈 Inkomen", f"€ {inkomen:,.2f}", "100%")
-    st.metric("📌 Vaste kosten", f"€ {vast_saldo:,.2f}", f"{pct(vast_saldo, inkomen)} van inkomen")
-    st.metric("📎 Variabele kosten", f"€ {variabel_saldo:,.2f}", f"{pct(variabel_saldo, inkomen)} van inkomen")
-    st.metric("💰 Totaal saldo", f"€ {totaal_saldo:,.2f}", f"{pct(totaal_saldo, inkomen)} van inkomen")
-
+col1, col2, col3, col4 = st.columns(4)
+col1.metric("📈 Inkomen", f"€ {inkomen:,.2f}", "100%")
+col2.metric("📌 Vaste kosten", f"€ {vast_saldo:,.2f}", f"{pct(vast_saldo, inkomen)} van inkomen")
+col3.metric("📎 Variabele kosten", f"€ {variabel_saldo:,.2f}", f"{pct(variabel_saldo, inkomen)} van inkomen")
+col4.metric("💰 Totaal saldo", f"€ {totaal_saldo:,.2f}", f"{pct(totaal_saldo, inkomen)} van inkomen")
 
 # ----------------------------
 # 💡 Financiële gezondheidsscore
@@ -168,11 +167,7 @@ def toon_draaitabel(data, titel):
         margins_name='Totaal'
     )
     pivot = pivot.reindex(columns=[m for m in maand_volgorde if m in pivot.columns] + ['Totaal'])
-with st.expander(f"📋 Bekijk draaitabel: {titel}"):
     st.dataframe(pivot.style.format("€ {:,.2f}"), use_container_width=True, height=400)
-
-
-
 
 st.subheader("📂 Overzicht per groep")
 toon_draaitabel(df_loon, "💼 Inkomsten: Loon")
@@ -356,4 +351,3 @@ else:
         figsize=(10, 3)
     )
     st.pyplot(fig)
-
