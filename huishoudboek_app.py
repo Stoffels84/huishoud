@@ -69,14 +69,33 @@ if len(df_filtered) == 0:
 # 📈 Samenvatting
 # ----------------------------
 
-totaal = df_filtered['bedrag'].sum()
-inkomen = df_filtered[df_filtered['bedrag'] > 0]['bedrag'].sum()
-uitgaven = df_filtered[df_filtered['bedrag'] < 0]['bedrag'].sum()
+# ----------------------------
+# 📈 Samenvatting op maat + percentages
+# ----------------------------
 
+# Filter "Inkomsten Loon"
+df_loon = df_filtered[df_filtered['categorie'].str.lower() == 'inkomsten loon']
+df_uitgaven = df_filtered[df_filtered['categorie'].str.lower() != 'inkomsten loon']
+
+# Bereken bedragen
+inkomen_loon = df_loon['bedrag'].sum()
+uitgaven_rest = df_uitgaven['bedrag'].sum()
+totaal_saldo = inkomen_loon + uitgaven_rest
+
+# Vermijd deling door nul
+if inkomen_loon != 0:
+    pct_saldo = totaal_saldo / inkomen_loon * 100
+    pct_uitgaven = uitgaven_rest / inkomen_loon * 100
+else:
+    pct_saldo = pct_uitgaven = 0
+
+# 📊 Tonen in 3 kolommen
 col1, col2, col3 = st.columns(3)
-col1.metric("💰 Totaal saldo", f"€ {totaal:,.2f}")
-col2.metric("📈 Inkomen", f"€ {inkomen:,.2f}")
-col3.metric("📉 Uitgaven", f"€ {uitgaven:,.2f}")
+
+col1.metric("💰 Totaal saldo", f"€ {totaal_saldo:,.2f}", f"{pct_saldo:.1f}% van inkomen")
+col2.metric("📈 Inkomen", f"€ {inkomen_loon:,.2f}", "100%")
+col3.metric("📉 Uitgaven", f"€ {uitgaven_rest:,.2f}", f"{pct_uitgaven:.1f}% van inkomen")
+
 
 # ----------------------------
 # 📊 Functie voor draaitabel
