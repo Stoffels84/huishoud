@@ -384,26 +384,32 @@ else:
 # 🤖 AI: Stel je vraag aan je huishoudboek
 # ----------------------------
 import openai
+from openai import OpenAI
 
-st.subheader("🤖 AI Analyse (zonder pandasai)")
+st.subheader("🤖 AI Analyse (via OpenAI v1.x)")
 
-api_key = st.text_input("Voer je OpenAI API key in", type="password")
+api_key = st.text_input("🔑 Voer je OpenAI API Key in", type="password")
 
 if api_key:
-    vraag = st.text_area("Wat wil je weten over je data?", placeholder="Bijv. Wat was mijn grootste uitgave in juli?")
-    
-    if st.button("Stel vraag aan AI") and vraag:
+    vraag = st.text_area("💬 Wat wil je weten over je data?", placeholder="Bijv. Wat was mijn grootste uitgave in juli?")
+
+    if st.button("🧠 Vraag AI") and vraag:
         try:
+            client = OpenAI(api_key=api_key)
+
             prompt = f"""Je bent een financiële assistent. Analyseer deze huishouddata:\n\n{df_filtered.head(20).to_csv(index=False)}\n\nVraag: {vraag}"""
-            
-            openai.api_key = api_key
-            response = openai.ChatCompletion.create(
+
+            response = client.chat.completions.create(
                 model="gpt-3.5-turbo",
-                messages=[{"role": "user", "content": prompt}],
+                messages=[
+                    {"role": "user", "content": prompt}
+                ],
                 temperature=0.2
             )
-            antwoord = response['choices'][0]['message']['content']
-            st.success("Antwoord van AI:")
+
+            antwoord = response.choices[0].message.content
+            st.success("✅ Antwoord van AI:")
             st.write(antwoord)
+
         except Exception as e:
-            st.error(f"Fout bij AI: {e}")
+            st.error(f"⚠️ Fout bij AI: {e}")
