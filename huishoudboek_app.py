@@ -10,28 +10,22 @@ def laad_data():
         st.info("📁 Bestand gevonden, laden maar...")
         df = pd.read_excel("huishoud.xlsx", sheet_name="Data", engine="openpyxl")
 
-        # Schoonmaak kolomnamen
+        # Kolommen opschonen
         df.columns = df.columns.str.strip().str.lower()
-
-        # Check verplichte kolommen
-        verplichte_kolommen = ['datum', 'bedrag', 'categorie']
-        for kolom in verplichte_kolommen:
+        verplicht = ['datum', 'bedrag', 'categorie']
+        for kolom in verplicht:
             if kolom not in df.columns:
-                st.error(f"Kolom '{kolom}' ontbreekt in Excel-bestand.")
+                st.error(f"Kolom '{kolom}' ontbreekt in het Excel-bestand.")
                 st.stop()
 
-        # Converteer types
         df['datum'] = pd.to_datetime(df['datum'], errors='coerce')
         df['bedrag'] = pd.to_numeric(df['bedrag'], errors='coerce')
         df['categorie'] = df['categorie'].astype(str).str.strip().str.title()
         df['vast/variabel'] = df.get('vast/variabel', 'Onbekend').astype(str).str.strip().str.title()
 
-        # Extra kolommen
+        df = df.dropna(subset=['datum', 'bedrag'])
         df['maand'] = df['datum'].dt.month
         df['maand_naam'] = df['datum'].dt.month.apply(lambda x: calendar.month_name[x])
-
-        # Filter lege
-        df = df.dropna(subset=['datum', 'bedrag'])
 
         st.success("✅ Data geladen!")
         st.write("📄 Voorbeeld data:", df.head())
@@ -39,9 +33,8 @@ def laad_data():
         return df
 
     except Exception as e:
-        st.error(f"❌ Fout bij het laden van de data: {e}")
+        st.error(f"❌ Fout bij het laden van data: {e}")
         st.stop()
-
 
 # 📥 Data inladen
 df = laad_data()
@@ -69,11 +62,14 @@ col1.metric("💰 Totaal saldo", f"€ {totaal:,.2f}")
 col2.metric("📈 Inkomen", f"€ {inkomen:,.2f}")
 col3.metric("📉 Uitgaven", f"€ {uitgaven:,.2f}")
 
-# 📌 Draaitabel per categorie per maand
-st.subheader("📂 Inkomsten & uitgaven per categorie per maand")
+# 📌 Draaitabellen INKOMSTEN en UITGAVEN
+maand_volgorde = list(calendar.month_name)[1:] + ['Totaal']
+df_filtered['maand_naam'] = pd.Categorical(df_filtered['maand_naam'], categories=maand_volgorde[:-1], ordered=True)
 
-pivot = pd.pivot_table(
-    df_filtered,
+# ➕ INKOMSTEN: enkel 'Inkomsten Loon'
+df_inkomen = df_filtered[df_filtered['categorie'] == 'Inkomsten Loon']
+pivot_inkomen = pd.pivot_table(
+    df_inkomen,
     index=['vast/variabel', 'categorie'],
     columns='maand_naam',
     values='bedrag',
@@ -82,10 +78,28 @@ pivot = pd.pivot_table(
     margins=True,
     margins_name='Totaal'
 )
+pivot_inkomen = pivot_inkomen.reindex(columns=[m for m in maand_volgorde if m in pivot_inkomen.columns])
 
-# Sorteer maanden
-maand_volgorde = list(calendar.month_name)[1:] + ['Totaal']
-pivot = pivot.reindex(columns=[m for m in maand_volgorde if m in pivot.columns])
+st.subheader("📈 Inkomsten")
+st.dataframe(pivot_inkomen, use_container_width=True)
 
-# 📋 Toon draaitabel
-st.dataframe(pivot, use_container_width=True)
+# ➖ UITGAVEN: alles behalve 'Inkomsten Loon'
+df_uitgaven = df_filtered[df_filtered['categorie'] != 'Inkomsten Loon']
+pivot_uitgaven = pd.pivot_table(
+    df_uitgaven,
+    index=['vast/variabel', 'categorie'],
+    columns='maand_naam',
+    values='bedrag',
+    aggfunc='sum',
+    fill_value=0,
+    margins=True,
+    margins_name='Totaal'
+)
+pivot_uitgaven = pivot_uitgaven.reindex(columns=[m for m in maand_volgorde if m in pivot_uitgaven.columns])
+
+st.subheader("📉 Uitgaven")
+st.dataframe(pivot_uitgaven, use_container_width=True)
+
+# 📄 Transacties
+st.subheader("📋 Alle transacties")
+st.dataframe(df_filtered.sort_values(by="datum", ascending=False), use_container_width=True)
