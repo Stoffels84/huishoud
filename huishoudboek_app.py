@@ -11,7 +11,7 @@ st.title("📊 Huishoudboekje Dashboard")
 
 def laad_data():
     try:
-        st.info("📁 Bestand gevonden, laden maar...")
+        st.info("📁 Bestand gevonden, laden maar... ")
         df = pd.read_excel("huishoud.xlsx", sheet_name="Data", engine="openpyxl")
 
         # Kolomnamen opschonen
@@ -68,33 +68,37 @@ if len(df_filtered) == 0:
 # ----------------------------
 # 📈 Samenvatting
 # ----------------------------
-
 # ----------------------------
-# 📈 Samenvatting op maat + percentages
+# 📈 Metrics met vaste, variabele en totaal
 # ----------------------------
 
-# Filter "Inkomsten Loon"
+# Selecties
 df_loon = df_filtered[df_filtered['categorie'].str.lower() == 'inkomsten loon']
-df_uitgaven = df_filtered[df_filtered['categorie'].str.lower() != 'inkomsten loon']
+df_vast = df_filtered[df_filtered['vast/variabel'] == 'Vast']
+df_variabel = df_filtered[df_filtered['vast/variabel'] == 'Variabel']
 
-# Bereken bedragen
+# Berekeningen
 inkomen_loon = df_loon['bedrag'].sum()
-uitgaven_rest = df_uitgaven['bedrag'].sum()
-totaal_saldo = inkomen_loon + uitgaven_rest
+vast_saldo = df_vast['bedrag'].sum()
+variabel_saldo = df_variabel['bedrag'].sum()
+totaal_saldo = inkomen_loon + vast_saldo + variabel_saldo
 
-# Vermijd deling door nul
-if inkomen_loon != 0:
-    pct_saldo = totaal_saldo / inkomen_loon * 100
-    pct_uitgaven = uitgaven_rest / inkomen_loon * 100
-else:
-    pct_saldo = pct_uitgaven = 0
+# Percentages (t.o.v. inkomen)
+def bereken_pct(bedrag, totaal):
+    return f"{(bedrag / totaal * 100):.1f}%" if totaal != 0 else "0%"
 
-# 📊 Tonen in 3 kolommen
-col1, col2, col3 = st.columns(3)
+pct_inkomen = "100%"
+pct_vast = bereken_pct(vast_saldo, inkomen_loon)
+pct_variabel = bereken_pct(variabel_saldo, inkomen_loon)
+pct_saldo = bereken_pct(totaal_saldo, inkomen_loon)
 
-col1.metric("💰 Totaal saldo", f"€ {totaal_saldo:,.2f}", f"{pct_saldo:.1f}% van inkomen")
-col2.metric("📈 Inkomen", f"€ {inkomen_loon:,.2f}", "100%")
-col3.metric("📉 Uitgaven", f"€ {uitgaven_rest:,.2f}", f"{pct_uitgaven:.1f}% van inkomen")
+# 📊 Vier metrics naast elkaar
+col1, col2, col3, col4 = st.columns(4)
+
+col1.metric("📈 Inkomen", f"€ {inkomen_loon:,.2f}", f"{pct_inkomen}")
+col2.metric("📌 Vaste kosten", f"€ {vast_saldo:,.2f}", f"{pct_vast} van inkomen")
+col3.metric("📎 Variabele kosten", f"€ {variabel_saldo:,.2f}", f"{pct_variabel} van inkomen")
+col4.metric("💰 Totaal saldo", f"€ {totaal_saldo:,.2f}", f"{pct_saldo} van inkomen")
 
 
 # ----------------------------
