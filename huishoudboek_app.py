@@ -35,7 +35,7 @@ col3.metric("📉 Uitgaven", f"€ {uitgaven:,.2f}")
 # Categorie grafiek
 if 'Categorie' in df_filtered.columns:
     st.subheader("📂 Bedragen per categorie")
-    categorie_data = df_filtered.groupby("Categorie")["Bedrag"].sum().sort_values()
+    categorie_data = df_filtered.groupby("categorie")["bedrag"].sum().sort_values()
     st.bar_chart(categorie_data)
 
 # Maand grafiek
