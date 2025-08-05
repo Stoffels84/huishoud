@@ -1,26 +1,52 @@
 import streamlit as st
 import pandas as pd
 
-# Pagina-instellingen
+# Pagina instellingen
 st.set_page_config(page_title="Huishoudboekje", layout="wide")
 
-st.title("📒 Mijn Huishoudboekje")
+st.title("📊 Dashboard Huishoudboekje")
 
-# Upload je Excel-bestand
-uploaded_file = st.file_uploader("Upload je Excel-bestand", type=["xlsx"])
+# Laad Excel-data
+@st.cache_data
+def load_data():
+    df = pd.read_excel("huishoud (1).xlsx", sheet_name="data")
+    df['Datum'] = pd.to_datetime(df['Datum'])  # Zorg dat 'Datum' datetime is
+    return df
 
-if uploaded_file:
-    df = pd.read_excel(uploaded_file)
+df = load_data()
 
-    st.subheader("📋 Tabeloverzicht")
-    st.dataframe(df, use_container_width=True)
+# Filters
+with st.sidebar:
+    st.header("📅 Filter op periode")
+    start_date = st.date_input("Startdatum", df['Datum'].min())
+    end_date = st.date_input("Einddatum", df['Datum'].max())
 
-    # Voorbeeld: totaal per categorie
-    if 'Categorie' in df.columns and 'Bedrag' in df.columns:
-        st.subheader("📊 Uitgaven per categorie")
-        categorie_totaal = df.groupby('Categorie')['Bedrag'].sum()
-        st.bar_chart(categorie_totaal)
-    else:
-        st.warning("Zorg dat je Excel de kolommen 'Categorie' en 'Bedrag' bevat.")
-else:
-    st.info("Upload een Excel-bestand om te beginnen.")
+# Filter op datum
+filtered_df = df[(df['Datum'] >= pd.to_datetime(start_date)) & (df['Datum'] <= pd.to_datetime(end_date))]
+
+# ✅ Totalen
+totaal = filtered_df['Bedrag'].sum()
+inkomen = filtered_df[filtered_df['Bedrag'] > 0]['Bedrag'].sum()
+uitgaven = filtered_df[filtered_df['Bedrag'] < 0]['Bedrag'].sum()
+
+st.metric("💰 Totaal saldo", f"€ {totaal:,.2f}")
+col1, col2 = st.columns(2)
+col1.metric("📈 Inkomen", f"€ {inkomen:,.2f}")
+col2.metric("📉 Uitgaven", f"€ {uitgaven:,.2f}")
+
+# 📊 Grafiek per categorie
+if 'Categorie' in filtered_df.columns:
+    st.subheader("📂 Uitgaven per categorie")
+    categorie_data = filtered_df.groupby('Categorie')['Bedrag'].sum().sort_values()
+    st.bar_chart(categorie_data)
+
+# 📅 Grafiek per maand
+st.subheader("🕓 Uitgaven per maand")
+df_maand = filtered_df.copy()
+df_maand['Maand'] = df_maand['Datum'].dt.to_period('M').astype(str)
+maand_data = df_maand.groupby('Maand')['Bedrag'].sum()
+st.line_chart(maand_data)
+
+# 📋 Tabel
+st.subheader("📄 Gegevens")
+st.dataframe(filtered_df.sort_values(by="Datum", ascending=False), use_container_width=True)
