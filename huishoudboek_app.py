@@ -254,9 +254,6 @@ fig_vergelijking = px.bar(
 fig_vergelijking.update_layout(xaxis_title="Maand", yaxis_title="€")
 st.plotly_chart(fig_vergelijking, use_container_width=True)
 # ----------------------------
-# 🔍 Automatische analyse huidig vs. vorige maand
-# ----------------------------
-# ----------------------------
 # 🔍 Automatische analyse huidig vs. vorige maand (betere versie)
 # ----------------------------
 aanwezige_maanden = [m for m in maand_volgorde if m in uitgaven_per_maand.index and uitgaven_per_maand[m] > 0]
@@ -283,5 +280,3 @@ if huidige_maand in aanwezige_maanden:
             st.info(f"ℹ️ Geen uitgaven in {vorige_maand} om mee te vergelijken.")
     else:
         st.info("ℹ️ Geen eerdere maand beschikbaar om mee te vergelijken.")
-
-
