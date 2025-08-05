@@ -11,7 +11,7 @@ st.title("📊 Huishoudboekje Dashboard")
 
 def laad_data():
     try:
-        st.info("📁 Bestand gevonden, laden maar... ")
+        st.info("📁 Bestand gevonden, laden maar...")
         df = pd.read_excel("huishoud.xlsx", sheet_name="Data", engine="openpyxl")
 
         # Kolomnamen opschonen
@@ -34,7 +34,7 @@ def laad_data():
         df['maand'] = df['datum'].dt.month
         df['maand_naam'] = df['datum'].dt.month.apply(lambda x: calendar.month_name[x])
 
-        # Rijen zonder datum/bedrag verwijderen
+        # Verwijder lege regels
         df = df.dropna(subset=['datum', 'bedrag'])
 
         st.success("✅ Data geladen!")
@@ -61,48 +61,41 @@ with st.sidebar:
 df_filtered = df[(df['datum'] >= pd.to_datetime(start_datum)) & (df['datum'] <= pd.to_datetime(eind_datum))]
 st.write("🔍 Aantal gefilterde rijen:", len(df_filtered))
 
-if len(df_filtered) == 0:
+if df_filtered.empty:
     st.warning("⚠️ Geen data in deze periode.")
     st.stop()
 
 # ----------------------------
-# 📈 Samenvatting
-# ----------------------------
-# ----------------------------
-# 📈 Metrics met vaste, variabele en totaal
+# 📊 Metrics
 # ----------------------------
 
-# Selecties
+# Filters
 df_loon = df_filtered[df_filtered['categorie'].str.lower() == 'inkomsten loon']
 df_vast = df_filtered[df_filtered['vast/variabel'] == 'Vast']
 df_variabel = df_filtered[df_filtered['vast/variabel'] == 'Variabel']
 
 # Berekeningen
-inkomen_loon = df_loon['bedrag'].sum()
+inkomen = df_loon['bedrag'].sum()
 vast_saldo = df_vast['bedrag'].sum()
-variabel_saldo = df_variabel['bedrag'].sum()
-totaal_saldo = inkomen_loon + vast_saldo + variabel_saldo
+variabel_saldo = df_variabel[df_variabel['bedrag'] < 0]['bedrag'].sum()  # Alleen negatieve uitgaven
+totaal_saldo = inkomen + vast_saldo + variabel_saldo
 
-# Percentages (t.o.v. inkomen)
-def bereken_pct(bedrag, totaal):
-    return f"{(bedrag / totaal * 100):.1f}%" if totaal != 0 else "0%"
+# Percentages t.o.v. inkomen
+def pct(v, t): return f"{(v/t*100):.1f}%" if t != 0 else "0%"
 
-pct_inkomen = "100%"
-pct_vast = bereken_pct(vast_saldo, inkomen_loon)
-pct_variabel = bereken_pct(variabel_saldo, inkomen_loon)
-pct_saldo = bereken_pct(totaal_saldo, inkomen_loon)
+pct_vast = pct(vast_saldo, inkomen)
+pct_variabel = pct(variabel_saldo, inkomen)
+pct_totaal = pct(totaal_saldo, inkomen)
 
-# 📊 Vier metrics naast elkaar
+# 📈 Metrics tonen
 col1, col2, col3, col4 = st.columns(4)
-
-col1.metric("📈 Inkomen", f"€ {inkomen_loon:,.2f}", f"{pct_inkomen}")
+col1.metric("📈 Inkomen", f"€ {inkomen:,.2f}", "100%")
 col2.metric("📌 Vaste kosten", f"€ {vast_saldo:,.2f}", f"{pct_vast} van inkomen")
 col3.metric("📎 Variabele kosten", f"€ {variabel_saldo:,.2f}", f"{pct_variabel} van inkomen")
-col4.metric("💰 Totaal saldo", f"€ {totaal_saldo:,.2f}", f"{pct_saldo} van inkomen")
-
+col4.metric("💰 Totaal saldo", f"€ {totaal_saldo:,.2f}", f"{pct_totaal} van inkomen")
 
 # ----------------------------
-# 📊 Functie voor draaitabel
+# 📋 Optioneel: draaitabellen per groep
 # ----------------------------
 
 def toon_draaitabel(data, titel):
@@ -111,7 +104,6 @@ def toon_draaitabel(data, titel):
         return
 
     st.markdown(f"### {titel}")
-
     pivot = pd.pivot_table(
         data,
         index='categorie',
@@ -119,30 +111,19 @@ def toon_draaitabel(data, titel):
         values='bedrag',
         aggfunc='sum',
         fill_value=0,
-        margins=True,             # ➕ Rij onderaan met totaal per maand
+        margins=True,
         margins_name='Totaal'
     )
 
-    # Juiste volgorde van maanden
+    # Juiste maandvolgorde
     maand_volgorde = list(calendar.month_name)[1:] + ['Totaal']
     pivot = pivot.reindex(columns=[m for m in maand_volgorde if m in pivot.columns])
 
-    # Waarden formatteren als euro
+    # Opmaak
     pivot = pivot.applymap(lambda x: f"€ {x:,.2f}")
     st.dataframe(pivot, use_container_width=True, height=400)
 
-# ----------------------------
-# 📂 Draaitabellen per groep
-# ----------------------------
-
 st.subheader("📂 Overzicht per groep")
-
-# Filteren per type
-df_loon = df_filtered[df_filtered['categorie'].str.lower() == 'inkomsten loon']
-df_vast = df_filtered[df_filtered['vast/variabel'] == 'Vast']
-df_variabel = df_filtered[df_filtered['vast/variabel'] == 'Variabel']
-
-# Draaitabellen tonen
 toon_draaitabel(df_loon, "💼 Inkomsten: Loon")
 toon_draaitabel(df_vast, "📌 Vaste kosten")
 toon_draaitabel(df_variabel, "📎 Variabele kosten")
