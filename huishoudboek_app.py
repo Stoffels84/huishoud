@@ -28,29 +28,14 @@ def laad_data():
             .str.replace(r'\s+', ' ', regex=True)
         )
 
-        # Specifieke normalisatie
-        df['categorie'] = df['categorie'].replace({
-            'inkomsten loon': 'inkomsten loon',
-            'loon inkomsten': 'inkomsten loon',
-            'loon': 'inkomsten loon',
-            'inkomst loon': 'inkomsten loon'
-        })
-
         df['vast/variabel'] = df.get('vast/variabel', 'Onbekend').astype(str).str.strip().str.title()
-
-        # Drop lege of ongeldige waarden
         df = df.dropna(subset=['datum', 'bedrag'])
 
-        # Voeg maand toe
         df['maand'] = df['datum'].dt.month
         df['maand_naam'] = df['datum'].dt.month.apply(lambda x: calendar.month_name[x])
 
-        # Log voor controle
         st.success("✅ Data geladen!")
         st.write("📄 Voorbeeld data:", df.head())
-        st.write("📋 Unieke categorieën:", df['categorie'].unique())
-        st.write("📊 Aantal rijen met 'inkomsten loon':", df[df['categorie'] == 'inkomsten loon'].shape[0])
-
         return df
 
     except Exception as e:
@@ -60,14 +45,13 @@ def laad_data():
 # 📥 Data inladen
 df = laad_data()
 
-# 📅 Filters
+# 📅 Filter
 with st.sidebar:
     st.header("📅 Filter op periode")
     start_datum = st.date_input("Van", df['datum'].min())
     eind_datum = st.date_input("Tot", df['datum'].max())
 
 df_filtered = df[(df['datum'] >= pd.to_datetime(start_datum)) & (df['datum'] <= pd.to_datetime(eind_datum))]
-st.write("🔍 Aantal gefilterde rijen:", len(df_filtered))
 
 if len(df_filtered) == 0:
     st.warning("⚠️ Geen data in deze periode.")
@@ -83,14 +67,12 @@ col1.metric("💰 Totaal saldo", f"€ {totaal:,.2f}")
 col2.metric("📈 Inkomen", f"€ {inkomen:,.2f}")
 col3.metric("📉 Uitgaven", f"€ {uitgaven:,.2f}")
 
-# 📌 Draaitabellen INKOMSTEN en UITGAVEN
+# 📌 Eén draaitabel: som per categorie per maand
 maand_volgorde = list(calendar.month_name)[1:] + ['Totaal']
 df_filtered['maand_naam'] = pd.Categorical(df_filtered['maand_naam'], categories=maand_volgorde[:-1], ordered=True)
 
-# ➕ INKOMSTEN: enkel 'inkomsten loon'
-df_inkomen = df_filtered[df_filtered['categorie'] == 'inkomsten loon']
-pivot_inkomen = pd.pivot_table(
-    df_inkomen,
+pivot = pd.pivot_table(
+    df_filtered,
     index=['vast/variabel', 'categorie'],
     columns='maand_naam',
     values='bedrag',
@@ -99,28 +81,12 @@ pivot_inkomen = pd.pivot_table(
     margins=True,
     margins_name='Totaal'
 )
-pivot_inkomen = pivot_inkomen.reindex(columns=[m for m in maand_volgorde if m in pivot_inkomen.columns])
 
-st.subheader("📈 Inkomsten")
-st.dataframe(pivot_inkomen, use_container_width=True)
+pivot = pivot.reindex(columns=[m for m in maand_volgorde if m in pivot.columns])
 
-# ➖ UITGAVEN: alles behalve 'inkomsten loon'
-df_uitgaven = df_filtered[df_filtered['categorie'] != 'inkomsten loon']
-pivot_uitgaven = pd.pivot_table(
-    df_uitgaven,
-    index=['vast/variabel', 'categorie'],
-    columns='maand_naam',
-    values='bedrag',
-    aggfunc='sum',
-    fill_value=0,
-    margins=True,
-    margins_name='Totaal'
-)
-pivot_uitgaven = pivot_uitgaven.reindex(columns=[m for m in maand_volgorde if m in pivot_uitgaven.columns])
+st.subheader("📂 Som per categorie per maand (volgens Excel)")
+st.dataframe(pivot, use_container_width=True)
 
-st.subheader("📉 Uitgaven")
-st.dataframe(pivot_uitgaven, use_container_width=True)
-
-# 📄 Transacties
-st.subheader("📋 Alle transacties")
+# 📋 Alle transacties
+st.subheader("📋 Transacties")
 st.dataframe(df_filtered.sort_values(by="datum", ascending=False), use_container_width=True)
