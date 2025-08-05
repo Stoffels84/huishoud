@@ -162,12 +162,5 @@ kosten_per_maand = (
 st.markdown("#### 📉 Vaste en variabele kosten per maand")
 st.line_chart(kosten_per_maand)
 
-# 📦 Saldo per categorie (excl. Inkomsten Loon)
-saldo_per_categorie = (
-    df_filtered[df_filtered['categorie'].str.lower() != 'inkomsten loon']
-    .groupby('categorie')['bedrag']
-    .sum()
-    .sort_values()
-)
 st.markdown("#### 📦 Saldo per categorie (zonder 'Inkomsten Loon')")
-st.bar_chart(saldo_per_categorie)
+
