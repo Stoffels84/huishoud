@@ -142,35 +142,41 @@ toon_draaitabel(df_variabel, "📎 Variabele kosten")
 # 📊 Grafieken
 # ----------------------------
 
+
 st.subheader("📈 Grafieken per maand en categorie")
 
-# 📅 Lijngrafiek: Inkomen per maand
-inkomen_per_maand = df_loon.groupby('maand_naam')['bedrag'].sum().reindex(calendar.month_name[1:])
-inkomen_per_maand = inkomen_per_maand.fillna(0)
+# 📅 Inkomen per maand (chronologisch)
+maanden = list(calendar.month_name)[1:]  # ['January', 'February', ...]
+inkomen_per_maand = (
+    df_loon.groupby('maand_naam')['bedrag']
+    .sum()
+    .reindex(maanden)
+    .fillna(0)
+)
 
 st.markdown("#### 📈 Inkomen per maand")
 st.line_chart(inkomen_per_maand)
 
-# 📌 Lijngrafiek: vaste en variabele saldi per maand
+# 📌 Vaste en variabele kosten per maand (chronologisch)
 kosten_per_maand = (
     df_filtered[df_filtered['vast/variabel'].isin(['Vast', 'Variabel'])]
     .groupby(['maand_naam', 'vast/variabel'])['bedrag']
     .sum()
     .unstack()
-    .reindex(calendar.month_name[1:])
+    .reindex(maanden)
     .fillna(0)
 )
 
 st.markdown("#### 📉 Vaste en variabele kosten per maand")
 st.line_chart(kosten_per_maand)
 
-# 📦 Staafgrafiek: saldo per categorie (hele periode)
+# 📦 Saldo per categorie (zonder 'Inkomsten Loon')
 saldo_per_categorie = (
-    df_filtered
+    df_filtered[df_filtered['categorie'].str.lower() != 'inkomsten loon']
     .groupby('categorie')['bedrag']
     .sum()
     .sort_values()
 )
 
-st.markdown("#### 📦 Saldo per categorie (hele periode)")
+st.markdown("#### 📦 Saldo per categorie (zonder 'Inkomsten Loon')")
 st.bar_chart(saldo_per_categorie)
