@@ -81,4 +81,19 @@ st.dataframe(uitgaven_pivot, use_container_width=True)
 # 📄 Inkomsten per maand
 st.subheader("📈 Inkomsten per maand")
 inkomen_df = df_filtered[df_filtered['bedrag'] > 0].copy()
-inkomen_pivot = pd._
+inkomen_pivot = pd.pivot_table(
+    inkomen_df,
+    index=["categorie"],
+    columns="maand",
+    values="bedrag",
+    aggfunc="sum",
+    fill_value=0
+)
+inkomen_pivot["Totaal"] = inkomen_pivot.sum(axis=1)
+inkomen_pivot = inkomen_pivot.reset_index()
+inkomen_pivot = inkomen_pivot[["categorie"] + list(maanden_nl.values()) + ["Totaal"]]
+st.dataframe(inkomen_pivot, use_container_width=True)
+
+# 📄 Transactielijst
+st.subheader("📋 Transacties")
+st.dataframe(df_filtered.sort_values(by="datum", ascending=False), use_container_width=True)
