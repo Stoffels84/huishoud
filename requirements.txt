@@ -3,4 +3,5 @@ pandas
 openpyxl
 plotly
 calplot
-pip install pandasai openai
+pandasai 
+openai
