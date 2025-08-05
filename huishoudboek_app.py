@@ -85,6 +85,30 @@ with st.sidebar:
     )
 
 # ----------------------------
+# 📅 Metrics voor geselecteerde maand
+# ----------------------------
+st.subheader(f"📆 Overzicht voor {geselecteerde_maand}")
+
+df_maand = df_filtered[df_filtered['maand_naam'] == geselecteerde_maand]
+
+# Opnieuw categoriseren
+df_loon_m = df_maand[df_maand['categorie'].str.lower() == 'inkomsten loon']
+df_vast_m = df_maand[df_maand['vast/variabel'] == 'Vast']
+df_variabel_m = df_maand[df_maand['vast/variabel'] == 'Variabel']
+
+inkomen_m = df_loon_m['bedrag'].sum()
+vast_saldo_m = df_vast_m['bedrag'].sum()
+variabel_saldo_m = df_variabel_m['bedrag'].sum()
+totaal_saldo_m = inkomen_m + vast_saldo_m + variabel_saldo_m
+
+col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+col_m1.metric("📈 Inkomen", f"€ {inkomen_m:,.2f}", "100%")
+col_m2.metric("📌 Vaste kosten", f"€ {vast_saldo_m:,.2f}", f"{pct(vast_saldo_m, inkomen_m)} van inkomen")
+col_m3.metric("📎 Variabele kosten", f"€ {variabel_saldo_m:,.2f}", f"{pct(variabel_saldo_m, inkomen_m)} van inkomen")
+col_m4.metric("💰 Totaal saldo", f"€ {totaal_saldo_m:,.2f}", f"{pct(totaal_saldo_m, inkomen_m)} van inkomen")
+
+
+# ----------------------------
 # 📊 Financiële metrics
 # ----------------------------
 df_filtered['maand_naam'] = df_filtered['maand_naam'].astype(maand_type)
