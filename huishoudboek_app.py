@@ -67,46 +67,22 @@ maand_type = CategoricalDtype(categories=maand_volgorde, ordered=True)
 # ----------------------------
 with st.sidebar:
     st.header("📅 Filter op periode")
+    start_datum = st.date_input("Van", df['datum'].min())
+    eind_datum = st.date_input("Tot", df['datum'].max())
 
-    # ─── Datumwaarden ─────────────────────────────
-    standaard_van = df['datum'].min().date()
-    standaard_tot = df['datum'].max().date()
+df_filtered = df[(df['datum'] >= pd.to_datetime(start_datum)) & (df['datum'] <= pd.to_datetime(eind_datum))]
+st.write("🔍 Aantal gefilterde rijen:", len(df_filtered))
 
-    if "start_datum" not in st.session_state:
-        st.session_state.start_datum = standaard_van
-    if "eind_datum" not in st.session_state:
-        st.session_state.eind_datum = standaard_tot
+if df_filtered.empty:
+    st.warning("⚠️ Geen data in deze periode.")
+    st.stop()
 
-    start_datum = st.date_input("Van", value=st.session_state.start_datum)
-    eind_datum = st.date_input("Tot", value=st.session_state.eind_datum)
-
-    # ─── Maandselectie ────────────────────────────
-    unieke_maanden = df[
-        (df['datum'] >= pd.to_datetime(start_datum)) &
-        (df['datum'] <= pd.to_datetime(eind_datum))
-    ]['maand_naam'].dropna().unique()
-
-    unieke_maanden = sorted(unieke_maanden, key=lambda x: maand_volgorde.index(x))
-
-    standaard_maand = unieke_maanden[-1] if unieke_maanden else "January"
-
-    if "geselecteerde_maand" not in st.session_state:
-        st.session_state.geselecteerde_maand = standaard_maand
-
+with st.sidebar:
+    unieke_maanden = df_filtered['maand_naam'].dropna().unique()
     geselecteerde_maand = st.selectbox(
         "📆 Kies een maand voor uitgavenanalyse",
-        unieke_maanden,
-        index=unieke_maanden.index(st.session_state.geselecteerde_maand)
-        if st.session_state.geselecteerde_maand in unieke_maanden else 0
+        sorted(unieke_maanden, key=lambda x: maand_volgorde.index(x))
     )
-
-    # ─── Resetknop ────────────────────────────────
-    if st.button("🔄 Herstel standaard"):
-        st.session_state.start_datum = standaard_van
-        st.session_state.eind_datum = standaard_tot
-        st.session_state.geselecteerde_maand = standaard_maand
-        st.rerun()
-
 
 # ----------------------------
 # 📊 Financiële metrics
