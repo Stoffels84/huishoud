@@ -254,28 +254,28 @@ fig_vergelijking = px.bar(
 fig_vergelijking.update_layout(xaxis_title="Maand", yaxis_title="€")
 st.plotly_chart(fig_vergelijking, use_container_width=True)
 # ----------------------------
-# 🔍 Automatische analyse huidig vs. vorige maand (betere versie)
+# 🔍 Automatische analyse huidig vs. vorige maand (visueel met pijlen)
 # ----------------------------
 aanwezige_maanden = [m for m in maand_volgorde if m in uitgaven_per_maand.index and uitgaven_per_maand[m] > 0]
 
-if huidige_maand in aanwezige_maanden:
-    huidig_index = aanwezige_maanden.index(huidige_maand)
+if geselecteerde_maand in aanwezige_maanden:
+    huidig_index = aanwezige_maanden.index(geselecteerde_maand)
 
     if huidig_index > 0:
         vorige_maand = aanwezige_maanden[huidig_index - 1]
 
-        huidig_bedrag = uitgaven_per_maand[huidige_maand]
+        huidig_bedrag = uitgaven_per_maand[geselecteerde_maand]
         vorig_bedrag = uitgaven_per_maand[vorige_maand]
 
         if vorig_bedrag > 0:
             verschil_pct = ((huidig_bedrag - vorig_bedrag) / vorig_bedrag) * 100
 
             if verschil_pct < -5:
-                st.success(f"🟢 Goed gedaan! Je gaf {abs(verschil_pct):.1f}% minder uit dan in {vorige_maand}.")
+                st.success(f"🔻 **{abs(verschil_pct):.1f}% minder uitgaven** dan in **{vorige_maand}**. Goed gedaan! 💚")
             elif verschil_pct > 5:
-                st.error(f"🔴 Let op! Je gaf {verschil_pct:.1f}% meer uit dan in {vorige_maand}.")
+                st.error(f"🔺 **{verschil_pct:.1f}% meer uitgaven** dan in **{vorige_maand}**. Let op! 🔴")
             else:
-                st.info(f"ℹ️ Je uitgaven in {huidige_maand} zijn vergelijkbaar met {vorige_maand} ({verschil_pct:.1f}%).")
+                st.info(f"⚖️ Uitgaven zijn vergelijkbaar met **{vorige_maand}** ({verschil_pct:.1f}%).")
         else:
             st.info(f"ℹ️ Geen uitgaven in {vorige_maand} om mee te vergelijken.")
     else:
