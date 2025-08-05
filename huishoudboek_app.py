@@ -136,3 +136,41 @@ st.subheader("📂 Overzicht per groep")
 toon_draaitabel(df_loon, "💼 Inkomsten: Loon")
 toon_draaitabel(df_vast, "📌 Vaste kosten")
 toon_draaitabel(df_variabel, "📎 Variabele kosten")
+
+
+# ----------------------------
+# 📊 Grafieken
+# ----------------------------
+
+st.subheader("📈 Grafieken per maand en categorie")
+
+# 📅 Lijngrafiek: Inkomen per maand
+inkomen_per_maand = df_loon.groupby('maand_naam')['bedrag'].sum().reindex(calendar.month_name[1:])
+inkomen_per_maand = inkomen_per_maand.fillna(0)
+
+st.markdown("#### 📈 Inkomen per maand")
+st.line_chart(inkomen_per_maand)
+
+# 📌 Lijngrafiek: vaste en variabele saldi per maand
+kosten_per_maand = (
+    df_filtered[df_filtered['vast/variabel'].isin(['Vast', 'Variabel'])]
+    .groupby(['maand_naam', 'vast/variabel'])['bedrag']
+    .sum()
+    .unstack()
+    .reindex(calendar.month_name[1:])
+    .fillna(0)
+)
+
+st.markdown("#### 📉 Vaste en variabele kosten per maand")
+st.line_chart(kosten_per_maand)
+
+# 📦 Staafgrafiek: saldo per categorie (hele periode)
+saldo_per_categorie = (
+    df_filtered
+    .groupby('categorie')['bedrag']
+    .sum()
+    .sort_values()
+)
+
+st.markdown("#### 📦 Saldo per categorie (hele periode)")
+st.bar_chart(saldo_per_categorie)
