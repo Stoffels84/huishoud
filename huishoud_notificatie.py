@@ -5,7 +5,7 @@ from datetime import date
 
 # 📨 Instellingen
 afzender = "bombaert-rotty@outlook.com"
-wachtwoord = "kanmuh-bUqsy3-zyccen"
+wachtwoord = "dipnlrtqoduhtret"
 ontvangers = ["christof.rotty@icloud.com", "partner@outlook.com"]
 
 onderwerp = f"💰 Huishoudupdate – {date.today().strftime('%d-%m-%Y')}"
