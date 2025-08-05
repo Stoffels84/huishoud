@@ -2,14 +2,6 @@ import streamlit as st
 import pandas as pd
 import locale
 
-# 📍 Zet maandnamen in het Nederlands
-try:
-    locale.setlocale(locale.LC_TIME, 'nl_NL.UTF-8')  # voor Linux/macOS
-except:
-    try:
-        locale.setlocale(locale.LC_TIME, 'nld')       # voor Windows
-    except:
-        st.warning("⚠️ Kan taalinstelling niet op Nederlands zetten.")
 
 # 📋 Pagina setup
 st.set_page_config(page_title="Huishoudboekje", layout="wide")
