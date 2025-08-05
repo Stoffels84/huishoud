@@ -20,12 +20,12 @@ with st.sidebar:
     start_datum = st.date_input("Van", df['datum'].min())
     eind_datum = st.date_input("Tot", df['datum'].max())
 
-df_filtered = df[(df['Datum'] >= pd.to_datetime(start_datum)) & (df['Datum'] <= pd.to_datetime(eind_datum))]
+df_filtered = df[(df['datum'] >= pd.to_datetime(start_datum)) & (df['Datum'] <= pd.to_datetime(eind_datum))]
 
 # Totalen
-totaal = df_filtered['Bedrag'].sum()
-inkomen = df_filtered[df_filtered['Bedrag'] > 0]['Bedrag'].sum()
-uitgaven = df_filtered[df_filtered['Bedrag'] < 0]['Bedrag'].sum()
+totaal = df_filtered['bedrag'].sum()
+inkomen = df_filtered[df_filtered['bedrag'] > 0]['bedrag'].sum()
+uitgaven = df_filtered[df_filtered['bedrag'] < 0]['bedrag'].sum()
 
 col1, col2, col3 = st.columns(3)
 col1.metric("💰 Totaal saldo", f"€ {totaal:,.2f}")
