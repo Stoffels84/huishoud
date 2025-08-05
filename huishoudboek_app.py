@@ -4,14 +4,15 @@ import calendar
 import plotly.express as px
 from pandas.api.types import CategoricalDtype
 
-
+# ----------------------------
+# 🔧 Pagina-instellingen
+# ----------------------------
 st.set_page_config(page_title="Huishoudboekje", layout="wide")
 st.title("📊 Huishoudboekje Dashboard")
 
 # ----------------------------
 # 📥 Data inladen
 # ----------------------------
-
 def laad_data():
     try:
         st.info("📁 Bestand gevonden, laden maar...")
@@ -54,15 +55,19 @@ def laad_data():
 df = laad_data()
 
 # ----------------------------
-# 📅 Filter op periode
+# 🧭 Maanden sorteren op juiste volgorde
 # ----------------------------
+maand_volgorde = list(calendar.month_name)[1:]  # ['January', ..., 'December']
+maand_type = CategoricalDtype(categories=maand_volgorde, ordered=True)
 
+# ----------------------------
+# 📅 Filter op periode en maand
+# ----------------------------
 with st.sidebar:
     st.header("📅 Filter op periode")
     start_datum = st.date_input("Van", df['datum'].min())
     eind_datum = st.date_input("Tot", df['datum'].max())
 
-# Eerst filteren op datum
 df_filtered = df[(df['datum'] >= pd.to_datetime(start_datum)) & (df['datum'] <= pd.to_datetime(eind_datum))]
 st.write("🔍 Aantal gefilterde rijen:", len(df_filtered))
 
@@ -70,7 +75,6 @@ if df_filtered.empty:
     st.warning("⚠️ Geen data in deze periode.")
     st.stop()
 
-# Daarna pas: maandkeuze op basis van gefilterde data
 with st.sidebar:
     unieke_maanden = df_filtered['maand_naam'].dropna().unique()
     geselecteerde_maand = st.selectbox(
@@ -78,21 +82,13 @@ with st.sidebar:
         sorted(unieke_maanden, key=lambda x: maand_volgorde.index(x))
     )
 
-
 # ----------------------------
-# 🧭 Maanden sorteren op volgorde
+# 📊 Financiële metrics
 # ----------------------------
-
-maand_volgorde = list(calendar.month_name)[1:]  # ['January', ..., 'December']
-maand_type = CategoricalDtype(categories=maand_volgorde, ordered=True)
-
 df_filtered['maand_naam'] = df_filtered['maand_naam'].astype(maand_type)
+
 df_loon = df_filtered[df_filtered['categorie'].str.lower() == 'inkomsten loon']
 df_loon['maand_naam'] = df_loon['maand_naam'].astype(maand_type)
-
-# ----------------------------
-# 📊 Metrics met saldi
-# ----------------------------
 
 df_vast = df_filtered[df_filtered['vast/variabel'] == 'Vast']
 df_variabel = df_filtered[df_filtered['vast/variabel'] == 'Variabel']
@@ -104,20 +100,15 @@ totaal_saldo = inkomen + vast_saldo + variabel_saldo
 
 def pct(v, t): return f"{(v/t*100):.1f}%" if t != 0 else "0%"
 
-pct_vast = pct(vast_saldo, inkomen)
-pct_variabel = pct(variabel_saldo, inkomen)
-pct_totaal = pct(totaal_saldo, inkomen)
-
 col1, col2, col3, col4 = st.columns(4)
 col1.metric("📈 Inkomen", f"€ {inkomen:,.2f}", "100%")
-col2.metric("📌 Vaste kosten", f"€ {vast_saldo:,.2f}", f"{pct_vast} van inkomen")
-col3.metric("📎 Variabele kosten", f"€ {variabel_saldo:,.2f}", f"{pct_variabel} van inkomen")
-col4.metric("💰 Totaal saldo", f"€ {totaal_saldo:,.2f}", f"{pct_totaal} van inkomen")
+col2.metric("📌 Vaste kosten", f"€ {vast_saldo:,.2f}", f"{pct(vast_saldo, inkomen)} van inkomen")
+col3.metric("📎 Variabele kosten", f"€ {variabel_saldo:,.2f}", f"{pct(variabel_saldo, inkomen)} van inkomen")
+col4.metric("💰 Totaal saldo", f"€ {totaal_saldo:,.2f}", f"{pct(totaal_saldo, inkomen)} van inkomen")
 
 # ----------------------------
 # 📋 Draaitabellen
 # ----------------------------
-
 def toon_draaitabel(data, titel):
     data = data.copy()
     data['categorie'] = data['categorie'].astype(str).str.strip()
@@ -149,10 +140,9 @@ toon_draaitabel(df_variabel, "📎 Variabele kosten")
 # ----------------------------
 # 📊 Grafieken
 # ----------------------------
-
 st.subheader("📈 Grafieken per maand en categorie")
 
-# 📈 Inkomen per maand (chronologisch)
+# 📈 Inkomen per maand
 inkomen_per_maand = (
     df_loon.groupby('maand_naam')['bedrag']
     .sum()
@@ -160,9 +150,9 @@ inkomen_per_maand = (
     .fillna(0)
 )
 st.markdown("#### 📈 Inkomen per maand")
-st.line_chart(inkomen_per_maand)
+st.line_chart(inkomen_per_maand, use_container_width=True)
 
-# 📉 Vaste & variabele kosten per maand (chronologisch)
+# 📉 Vaste & variabele kosten per maand
 kosten_per_maand = (
     df_filtered[df_filtered['vast/variabel'].isin(['Vast', 'Variabel'])]
     .groupby(['maand_naam', 'vast/variabel'])['bedrag']
@@ -172,8 +162,9 @@ kosten_per_maand = (
     .fillna(0)
 )
 st.markdown("#### 📉 Vaste en variabele kosten per maand")
-st.line_chart(kosten_per_maand)
+st.line_chart(kosten_per_maand, use_container_width=True)
 
+# 🍩 Donutgrafiek per maand (zonder inkomsten loon)
 st.subheader(f"🍩 Uitgaven per categorie in {geselecteerde_maand} (excl. 'Inkomsten Loon')")
 
 df_donut = df_filtered[
@@ -185,7 +176,7 @@ if df_donut.empty:
     st.info("ℹ️ Geen uitgaven gevonden voor deze maand.")
 else:
     donut_data = df_donut.groupby('categorie')['bedrag'].sum().reset_index()
-    donut_data['bedrag'] = donut_data['bedrag'].abs()  # Zorg dat alle waarden positief zijn
+    donut_data['bedrag'] = donut_data['bedrag'].abs()  # Alle bedragen positief
 
     fig = px.pie(
         donut_data,
@@ -196,5 +187,3 @@ else:
     )
     fig.update_traces(textinfo='percent+label')
     st.plotly_chart(fig, use_container_width=True)
-
-
