@@ -87,26 +87,58 @@ with st.sidebar:
 # ----------------------------
 # 📊 Financiële metrics
 # ----------------------------
-df_filtered['maand_naam'] = df_filtered['maand_naam'].astype(maand_type)
+# ----------------------------
+# 📆 Financieel overzicht van geselecteerde maand
+# ----------------------------
 
-df_loon = df_filtered[df_filtered['categorie'].str.lower() == 'inkomsten loon']
-df_loon['maand_naam'] = df_loon['maand_naam'].astype(maand_type)
+st.subheader(f"📊 Financieel overzicht: {geselecteerde_maand}")
 
-df_vast = df_filtered[df_filtered['vast/variabel'] == 'Vast']
-df_variabel = df_filtered[df_filtered['vast/variabel'] == 'Variabel']
+# Filter de data voor alleen de geselecteerde maand
+df_maand = df_filtered[df_filtered['maand_naam'] == geselecteerde_maand].copy()
 
-inkomen = df_loon['bedrag'].sum()
-vast_saldo = df_vast['bedrag'].sum()
-variabel_saldo = df_variabel['bedrag'].sum()
-totaal_saldo = inkomen + vast_saldo + variabel_saldo
+# Berekeningen per type
+inkomen_maand = df_maand[df_maand['categorie'].str.lower() == 'inkomsten loon']['bedrag'].sum()
+vast_maand = df_maand[df_maand['vast/variabel'] == 'Vast']['bedrag'].sum()
+variabel_maand = df_maand[df_maand['vast/variabel'] == 'Variabel']['bedrag'].sum()
+saldo_maand = inkomen_maand + vast_maand + variabel_maand
 
-def pct(v, t): return f"{(v/t*100):.1f}%" if t != 0 else "0%"
+# Helper voor % van inkomen
+def pct_text(waarde, totaal):
+    if totaal == 0:
+        return "0%"
+    return f"{(waarde / totaal * 100):.1f}% van inkomen"
 
+# Layout met 4 kolommen
 col1, col2, col3, col4 = st.columns(4)
-col1.metric("📈 Inkomen", f"€ {inkomen:,.2f}", "100%")
-col2.metric("📌 Vaste kosten", f"€ {vast_saldo:,.2f}", f"{pct(vast_saldo, inkomen)} van inkomen")
-col3.metric("📎 Variabele kosten", f"€ {variabel_saldo:,.2f}", f"{pct(variabel_saldo, inkomen)} van inkomen")
-col4.metric("💰 Totaal saldo", f"€ {totaal_saldo:,.2f}", f"{pct(totaal_saldo, inkomen)} van inkomen")
+
+col1.metric(
+    label="📈 Inkomen",
+    value=f"€ {inkomen_maand:,.2f}",
+    delta="100%",
+    delta_color="normal"
+)
+
+col2.metric(
+    label="📌 Vaste kosten",
+    value=f"€ {vast_maand:,.2f}",
+    delta=pct_text(vast_maand, inkomen_maand),
+    delta_color="inverse"
+)
+
+col3.metric(
+    label="📎 Variabele kosten",
+    value=f"€ {variabel_maand:,.2f}",
+    delta=pct_text(variabel_maand, inkomen_maand),
+    delta_color="inverse"
+)
+
+col4.metric(
+    label="💰 Totaal saldo",
+    value=f"€ {saldo_maand:,.2f}",
+    delta=pct_text(saldo_maand, inkomen_maand),
+    delta_color="normal"
+)
+
 
 # ----------------------------
 # 💡 Financiële gezondheidsscore
