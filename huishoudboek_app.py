@@ -67,8 +67,27 @@ maand_type = CategoricalDtype(categories=maand_volgorde, ordered=True)
 # ----------------------------
 with st.sidebar:
     st.header("📅 Filter op periode")
-    start_datum = st.date_input("Van", df['datum'].min())
-    eind_datum = st.date_input("Tot", df['datum'].max())
+
+    # Standaardwaardes bepalen
+    standaard_van = df['datum'].min().date()
+    standaard_tot = df['datum'].max().date()
+
+    # Initieer session_state bij eerste run
+    if "start_datum" not in st.session_state:
+        st.session_state.start_datum = standaard_van
+    if "eind_datum" not in st.session_state:
+        st.session_state.eind_datum = standaard_tot
+
+    # Filters tonen
+    start_datum = st.date_input("Van", value=st.session_state.start_datum)
+    eind_datum = st.date_input("Tot", value=st.session_state.eind_datum)
+
+    # Resetknop
+    if st.button("🔄 Herstel standaard"):
+        st.session_state.start_datum = standaard_van
+        st.session_state.eind_datum = standaard_tot
+        st.experimental_rerun()
+
 
 df_filtered = df[(df['datum'] >= pd.to_datetime(start_datum)) & (df['datum'] <= pd.to_datetime(eind_datum))]
 st.write("🔍 Aantal gefilterde rijen:", len(df_filtered))
