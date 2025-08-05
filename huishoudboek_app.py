@@ -168,7 +168,9 @@ def toon_draaitabel(data, titel):
         margins_name='Totaal'
     )
     pivot = pivot.reindex(columns=[m for m in maand_volgorde if m in pivot.columns] + ['Totaal'])
+    with st.expander("📋 Bekijk draaitabel"):
     st.dataframe(pivot.style.format("€ {:,.2f}"), use_container_width=True, height=400)
+
 
 st.subheader("📂 Overzicht per groep")
 toon_draaitabel(df_loon, "💼 Inkomsten: Loon")
