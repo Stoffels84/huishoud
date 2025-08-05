@@ -293,7 +293,14 @@ df_kalender = df_kalender[df_kalender['categorie'].str.lower() != 'inkomsten loo
 df_kalender = df_kalender.dropna(subset=['datum', 'bedrag'])
 
 # Som per dag berekenen
-dagelijkse_uitgaven = df_kalender.groupby(df_kalender['datum'].dt.date)['bedrag'].sum().abs()
+dagelijkse_uitgaven = (
+    df_kalender
+    .groupby(pd.to_datetime(df_kalender['datum'].dt.date))['bedrag']
+    .sum()
+    .abs()
+)
+
+dagelijkse_uitgaven.index = pd.to_datetime(dagelijkse_uitgaven.index)  # Belangrijk!
 
 if dagelijkse_uitgaven.empty:
     st.info("ℹ️ Geen uitgaven om weer te geven in de kalender.")
