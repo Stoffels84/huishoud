@@ -9,7 +9,7 @@ from pandas.api.types import CategoricalDtype
 # ----------------------------
 # 🔧 Pagina-instellingen
 # ----------------------------
-st.set_page_config(page_title="Huishoudboekje", layout="wide")
+st.set_page_config(page_title="Huishoudboekje")
 st.title("📊 Huishoudboekje Dashboard")
 
 # ----------------------------
