@@ -24,7 +24,7 @@ def laad_data():
                 st.error(f"Kolom '{kolom}' ontbreekt in Excel-bestand.")
                 st.stop()
 
-        # Types converteren
+        # Datatypes omzetten
         df['datum'] = pd.to_datetime(df['datum'], errors='coerce')
         df['bedrag'] = pd.to_numeric(df['bedrag'], errors='coerce')
         df['categorie'] = df['categorie'].astype(str).str.strip().str.title()
@@ -34,7 +34,7 @@ def laad_data():
         df['maand'] = df['datum'].dt.month
         df['maand_naam'] = df['datum'].dt.month.apply(lambda x: calendar.month_name[x])
 
-        # Verwijder lege rijen
+        # Opschonen: geen lege of ontbrekende categorie of bedrag
         df = df.dropna(subset=['datum', 'bedrag', 'categorie'])
         df = df[df['categorie'].str.strip() != ""]
 
@@ -75,7 +75,7 @@ df_loon = df_filtered[df_filtered['categorie'].str.lower() == 'inkomsten loon']
 df_vast = df_filtered[df_filtered['vast/variabel'] == 'Vast']
 df_variabel = df_filtered[df_filtered['vast/variabel'] == 'Variabel']
 
-# Netto saldi (inkomsten + uitgaven)
+# Netto saldi
 inkomen = df_loon['bedrag'].sum()
 vast_saldo = df_vast['bedrag'].sum()
 variabel_saldo = df_variabel['bedrag'].sum()
@@ -88,7 +88,7 @@ pct_vast = pct(vast_saldo, inkomen)
 pct_variabel = pct(variabel_saldo, inkomen)
 pct_totaal = pct(totaal_saldo, inkomen)
 
-# 📈 Vier kerngetallen tonen
+# 📈 Metrics tonen
 col1, col2, col3, col4 = st.columns(4)
 col1.metric("📈 Inkomen", f"€ {inkomen:,.2f}", "100%")
 col2.metric("📌 Vaste kosten", f"€ {vast_saldo:,.2f}", f"{pct_vast} van inkomen")
@@ -96,11 +96,11 @@ col3.metric("📎 Variabele kosten", f"€ {variabel_saldo:,.2f}", f"{pct_variab
 col4.metric("💰 Totaal saldo", f"€ {totaal_saldo:,.2f}", f"{pct_totaal} van inkomen")
 
 # ----------------------------
-# 📋 Draaitabellen
+# 📋 Draaitabellen (zonder lege rijen)
 # ----------------------------
 
 def toon_draaitabel(data, titel):
-    # Opschonen: geen lege of foute categorieën
+    # Opschonen
     data = data.copy()
     data['categorie'] = data['categorie'].astype(str).str.strip()
     data = data[data['categorie'].notna() & (data['categorie'] != "")]
@@ -122,13 +122,11 @@ def toon_draaitabel(data, titel):
         margins_name='Totaal'
     )
 
-    # Maandvolgorde sorteren
     maand_volgorde = list(calendar.month_name)[1:] + ['Totaal']
     pivot = pivot.reindex(columns=[m for m in maand_volgorde if m in pivot.columns])
 
-    # Opmaken als euro's
-    pivot = pivot.applymap(lambda x: f"€ {x:,.2f}")
-    st.dataframe(pivot, use_container_width=True, height=400)
+    # 🔍 GEEN .applymap — gebruik format()
+    st.dataframe(pivot.style.format("€ {:,.2f}"), use_container_width=True, height=400)
 
 # ----------------------------
 # 📂 Draaitabellen tonen
