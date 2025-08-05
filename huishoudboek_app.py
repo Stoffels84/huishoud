@@ -70,7 +70,7 @@ if df_filtered.empty:
 # ----------------------------
 
 # ----------------------------
-# 📊 Metrics met correcte saldi per groep
+# 📊 Metrics met correcte vaste en variabele saldi
 # ----------------------------
 
 # Filters
@@ -78,7 +78,7 @@ df_loon = df_filtered[df_filtered['categorie'].str.lower() == 'inkomsten loon']
 df_vast = df_filtered[df_filtered['vast/variabel'] == 'Vast']
 df_variabel = df_filtered[df_filtered['vast/variabel'] == 'Variabel']
 
-# ✅ Saldi: gewoon optellen (positief + negatief)
+# ✅ Som van alles (zoals bij vaste kosten)
 inkomen = df_loon['bedrag'].sum()
 vast_saldo = df_vast['bedrag'].sum()
 variabel_saldo = df_variabel['bedrag'].sum()
@@ -97,6 +97,7 @@ col1.metric("📈 Inkomen", f"€ {inkomen:,.2f}", "100%")
 col2.metric("📌 Vaste kosten", f"€ {vast_saldo:,.2f}", f"{pct_vast} van inkomen")
 col3.metric("📎 Variabele kosten", f"€ {variabel_saldo:,.2f}", f"{pct_variabel} van inkomen")
 col4.metric("💰 Totaal saldo", f"€ {totaal_saldo:,.2f}", f"{pct_totaal} van inkomen")
+
 
 
 # ----------------------------
