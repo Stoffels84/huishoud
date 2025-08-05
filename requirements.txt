@@ -3,5 +3,5 @@ pandas
 openpyxl
 plotly
 calplot
-pandasai 
+pandasai==1.5.15
 openai
