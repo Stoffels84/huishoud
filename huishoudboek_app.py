@@ -9,7 +9,7 @@ st.title("📊 Dashboard Huishoudboekje")
 # Laad Excel-data
 @st.cache_data
 def load_data():
-    df = pd.read_excel("huishoud (1).xlsx", sheet_name="data")
+    df = pd.read_excel("huishoud.xlsx", sheet_name="data")
     df['Datum'] = pd.to_datetime(df['Datum'])  # Zorg dat 'Datum' datetime is
     return df
 
@@ -48,5 +48,4 @@ maand_data = df_maand.groupby('Maand')['Bedrag'].sum()
 st.line_chart(maand_data)
 
 # 📋 Tabel
-st.subheader("📄 Gegevens")
-st.dataframe(filtered_df.sort_values(by="Datum", ascending=False), use_container_width=True)
+st.subheader(
