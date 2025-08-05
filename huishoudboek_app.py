@@ -68,7 +68,13 @@ st.line_chart(maand_saldo)
 st.subheader("📋 Draaitabellen per maand")
 
 # 📆 Maandnaam in Nederlands
-df_filtered['maand'] = df_filtered['datum'].dt.month_name().str.lower()
+maanden_nl = {
+    1: 'januari', 2: 'februari', 3: 'maart', 4: 'april',
+    5: 'mei', 6: 'juni', 7: 'juli', 8: 'augustus',
+    9: 'september', 10: 'oktober', 11: 'november', 12: 'december'
+}
+df_filtered['maand'] = df_filtered['datum'].dt.month.map(maanden_nl)
+
 
 # Maand volgorde vastleggen
 maand_volgorde = [
