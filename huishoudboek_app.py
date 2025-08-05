@@ -101,6 +101,9 @@ vast_saldo_m = df_vast_m['bedrag'].sum()
 variabel_saldo_m = df_variabel_m['bedrag'].sum()
 totaal_saldo_m = inkomen_m + vast_saldo_m + variabel_saldo_m
 
+def pct(v, t): 
+    return f"{(v/t*100):.1f}%" if t != 0 else "0%"
+
 col_m1, col_m2, col_m3, col_m4 = st.columns(4)
 col_m1.metric("📈 Inkomen", f"€ {inkomen_m:,.2f}", "100%")
 col_m2.metric("📌 Vaste kosten", f"€ {vast_saldo_m:,.2f}", f"{pct(vast_saldo_m, inkomen_m)} van inkomen")
