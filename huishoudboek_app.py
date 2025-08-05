@@ -116,7 +116,7 @@ st.subheader("📂 Overzicht per groep")
 # Data splitsen
 df_vast = df_filtered[df_filtered['vast/variabel'] == 'Vast']
 df_variabel = df_filtered[df_filtered['vast/variabel'] == 'Variabel']
-df_loon = df_filtered[df_filtered['categorie'].str.lower() == 'loon']
+df_loon = df_filtered[df_filtered['categorie'].str.lower() == 'inkomsten loon']
 
 # Draaitabellen tonen
 toon_draaitabel(df_loon, "💼 Inkomsten: Loon")
