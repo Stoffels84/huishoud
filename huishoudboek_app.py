@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import calendar
 import plotly.express as px
+import matplotlib.pyplot as plt
+import calplot
 from pandas.api.types import CategoricalDtype
 
 # ----------------------------
@@ -280,3 +282,28 @@ if geselecteerde_maand in aanwezige_maanden:
             st.info(f"ℹ️ Geen uitgaven in {vorige_maand} om mee te vergelijken.")
     else:
         st.info("ℹ️ Geen eerdere maand beschikbaar om mee te vergelijken.")
+
+# ----------------------------
+# 📅 Kalenderweergave van uitgaven
+# ----------------------------
+st.subheader("📅 Dagelijkse uitgaven (kalenderweergave)")
+
+df_kalender = df_filtered.copy()
+df_kalender = df_kalender[df_kalender['categorie'].str.lower() != 'inkomsten loon']
+df_kalender = df_kalender.dropna(subset=['datum', 'bedrag'])
+
+# Som per dag berekenen
+dagelijkse_uitgaven = df_kalender.groupby(df_kalender['datum'].dt.date)['bedrag'].sum().abs()
+
+if dagelijkse_uitgaven.empty:
+    st.info("ℹ️ Geen uitgaven om weer te geven in de kalender.")
+else:
+    fig, ax = calplot.calplot(
+        dagelijkse_uitgaven,
+        cmap='Reds',
+        colorbar=True,
+        suptitle='Uitgaven per dag',
+        figsize=(10, 3)
+    )
+    st.pyplot(fig)
+
