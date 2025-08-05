@@ -17,14 +17,14 @@ def laad_data():
         # Kolomnamen opschonen
         df.columns = df.columns.str.strip().str.lower()
 
-        # Verplichte kolommen
+        # Verplichte kolommen controleren
         verplichte_kolommen = ['datum', 'bedrag', 'categorie']
         for kolom in verplichte_kolommen:
             if kolom not in df.columns:
                 st.error(f"Kolom '{kolom}' ontbreekt in Excel-bestand.")
                 st.stop()
 
-        # Datatypes omzetten
+        # Types converteren
         df['datum'] = pd.to_datetime(df['datum'], errors='coerce')
         df['bedrag'] = pd.to_numeric(df['bedrag'], errors='coerce')
         df['categorie'] = df['categorie'].astype(str).str.strip().str.title()
@@ -34,8 +34,9 @@ def laad_data():
         df['maand'] = df['datum'].dt.month
         df['maand_naam'] = df['datum'].dt.month.apply(lambda x: calendar.month_name[x])
 
-        # Verwijder lege regels
-        df = df.dropna(subset=['datum', 'bedrag'])
+        # Verwijder lege rijen
+        df = df.dropna(subset=['datum', 'bedrag', 'categorie'])
+        df = df[df['categorie'].str.strip() != ""]
 
         st.success("✅ Data geladen!")
         with st.expander("📄 Voorbeeld van de data"):
@@ -66,11 +67,7 @@ if df_filtered.empty:
     st.stop()
 
 # ----------------------------
-# 📊 Metrics
-# ----------------------------
-
-# ----------------------------
-# 📊 Metrics met correcte vaste en variabele saldi
+# 📊 Metrics met correcte saldi
 # ----------------------------
 
 # Filters
@@ -78,7 +75,7 @@ df_loon = df_filtered[df_filtered['categorie'].str.lower() == 'inkomsten loon']
 df_vast = df_filtered[df_filtered['vast/variabel'] == 'Vast']
 df_variabel = df_filtered[df_filtered['vast/variabel'] == 'Variabel']
 
-# ✅ Som van alles (zoals bij vaste kosten)
+# Netto saldi (inkomsten + uitgaven)
 inkomen = df_loon['bedrag'].sum()
 vast_saldo = df_vast['bedrag'].sum()
 variabel_saldo = df_variabel['bedrag'].sum()
@@ -91,25 +88,29 @@ pct_vast = pct(vast_saldo, inkomen)
 pct_variabel = pct(variabel_saldo, inkomen)
 pct_totaal = pct(totaal_saldo, inkomen)
 
-# 📈 Metrics tonen
+# 📈 Vier kerngetallen tonen
 col1, col2, col3, col4 = st.columns(4)
 col1.metric("📈 Inkomen", f"€ {inkomen:,.2f}", "100%")
 col2.metric("📌 Vaste kosten", f"€ {vast_saldo:,.2f}", f"{pct_vast} van inkomen")
 col3.metric("📎 Variabele kosten", f"€ {variabel_saldo:,.2f}", f"{pct_variabel} van inkomen")
 col4.metric("💰 Totaal saldo", f"€ {totaal_saldo:,.2f}", f"{pct_totaal} van inkomen")
 
-
-
 # ----------------------------
-# 📋 Optioneel: draaitabellen per groep
+# 📋 Draaitabellen
 # ----------------------------
 
 def toon_draaitabel(data, titel):
+    # Opschonen: geen lege of foute categorieën
+    data = data.copy()
+    data['categorie'] = data['categorie'].astype(str).str.strip()
+    data = data[data['categorie'].notna() & (data['categorie'] != "")]
+
     if data.empty:
         st.info(f"ℹ️ Geen gegevens beschikbaar voor: {titel}")
         return
 
     st.markdown(f"### {titel}")
+
     pivot = pd.pivot_table(
         data,
         index='categorie',
@@ -121,13 +122,17 @@ def toon_draaitabel(data, titel):
         margins_name='Totaal'
     )
 
-    # Juiste maandvolgorde
+    # Maandvolgorde sorteren
     maand_volgorde = list(calendar.month_name)[1:] + ['Totaal']
     pivot = pivot.reindex(columns=[m for m in maand_volgorde if m in pivot.columns])
 
-    # Opmaak
+    # Opmaken als euro's
     pivot = pivot.applymap(lambda x: f"€ {x:,.2f}")
     st.dataframe(pivot, use_container_width=True, height=400)
+
+# ----------------------------
+# 📂 Draaitabellen tonen
+# ----------------------------
 
 st.subheader("📂 Overzicht per groep")
 toon_draaitabel(df_loon, "💼 Inkomsten: Loon")
