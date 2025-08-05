@@ -10,7 +10,7 @@ st.title("📊 Huishoudboekje Dashboard")
 # ---------- Data inladen ----------
 @st.cache_data
 def laad_data():
-    df = pd.read_excel("huishoud.xlsx", sheet_name="data")
+    df = pd.read_excel("huishoud.xlsx", sheet_name="data", engine="openpyxl")
     df['Datum'] = pd.to_datetime(df['Datum'], errors='coerce')
     df = df.dropna(subset=['Datum', 'Bedrag'])
     return df
