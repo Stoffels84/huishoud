@@ -61,6 +61,9 @@ with st.sidebar:
     st.header("📅 Filter op periode")
     start_datum = st.date_input("Van", df['datum'].min())
     eind_datum = st.date_input("Tot", df['datum'].max())
+with st.sidebar:
+    unieke_maanden = df_filtered['maand_naam'].dropna().unique()
+    geselecteerde_maand = st.selectbox("📆 Kies een maand voor uitgavenanalyse", sorted(unieke_maanden, key=lambda x: maand_volgorde.index(x)))
 
 df_filtered = df[(df['datum'] >= pd.to_datetime(start_datum)) & (df['datum'] <= pd.to_datetime(eind_datum))]
 st.write("🔍 Aantal gefilterde rijen:", len(df_filtered))
@@ -69,9 +72,6 @@ if df_filtered.empty:
     st.warning("⚠️ Geen data in deze periode.")
     st.stop()
 
-with st.sidebar:
-    unieke_maanden = df_filtered['maand_naam'].dropna().unique()
-    geselecteerde_maand = st.selectbox("📆 Kies een maand voor uitgavenanalyse", sorted(unieke_maanden, key=lambda x: maand_volgorde.index(x)))
 
 # ----------------------------
 # 🧭 Maanden sorteren op volgorde
