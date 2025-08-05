@@ -107,6 +107,41 @@ col3.metric("📎 Variabele kosten", f"€ {variabel_saldo:,.2f}", f"{pct(variab
 col4.metric("💰 Totaal saldo", f"€ {totaal_saldo:,.2f}", f"{pct(totaal_saldo, inkomen)} van inkomen")
 
 # ----------------------------
+# 💡 Financiële gezondheidsscore
+# ----------------------------
+st.subheader("💡 Financiële Gezondheid")
+
+totale_uitgaven = abs(vast_saldo + variabel_saldo)
+if inkomen > 0:
+    gezondheid_score = 100 - ((totale_uitgaven / inkomen) * 100)
+    gezondheid_score = max(0, min(100, gezondheid_score))
+else:
+    gezondheid_score = 0
+
+st.metric("💚 Gezondheidsscore", f"{gezondheid_score:.0f} / 100", help="Gebaseerd op verhouding tussen uitgaven en inkomen")
+
+# Alternatief: visuele meter via plotly
+import plotly.graph_objects as go
+
+fig_score = go.Figure(go.Indicator(
+    mode="gauge+number",
+    value=gezondheid_score,
+    domain={'x': [0, 1], 'y': [0, 1]},
+    title={'text': "Financiële gezondheid"},
+    gauge={
+        'axis': {'range': [0, 100]},
+        'bar': {'color': "green" if gezondheid_score >= 60 else "orange" if gezondheid_score >= 30 else "red"},
+        'steps': [
+            {'range': [0, 30], 'color': "#ffcccc"},
+            {'range': [30, 60], 'color': "#ffe0b3"},
+            {'range': [60, 100], 'color': "#ccffcc"}
+        ],
+    }
+))
+st.plotly_chart(fig_score, use_container_width=True)
+
+
+# ----------------------------
 # 📋 Draaitabellen
 # ----------------------------
 def toon_draaitabel(data, titel):
