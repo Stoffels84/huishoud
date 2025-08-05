@@ -40,10 +40,10 @@ if 'Categorie' in df_filtered.columns:
 
 # Maand grafiek
 st.subheader("📅 Saldo per maand")
-df_filtered['Maand'] = df_filtered['Datum'].dt.to_period('M').astype(str)
-maand_data = df_filtered.groupby("Maand")["Bedrag"].sum()
+df_filtered['maand'] = df_filtered['datum'].dt.to_period('M').astype(str)
+maand_data = df_filtered.groupby("maand")["bedrag"].sum()
 st.line_chart(maand_data)
 
 # Tabel
 st.subheader("📄 Transacties")
-st.dataframe(df_filtered.sort_values(by="Datum", ascending=False), use_container_width=True)
+st.dataframe(df_filtered.sort_values(by="datum", ascending=False), use_container_width=True)
