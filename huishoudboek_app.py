@@ -139,22 +139,23 @@ col4.metric(
     delta_color="normal"
 )
 
-
 # ----------------------------
-# 💡 Financiële gezondheidsscore
+# 💡 Gezondheidsscore (alleen voor geselecteerde maand)
 # ----------------------------
-st.subheader("💡 Financiële Gezondheid")
 
-totale_uitgaven = abs(vast_saldo + variabel_saldo)
-if inkomen > 0:
-    gezondheid_score = 100 - ((totale_uitgaven / inkomen) * 100)
+st.subheader("💡 Financiële gezondheid (maand)")
+
+totale_uitgaven_maand = abs(vast_maand + variabel_maand)
+
+if inkomen_maand > 0:
+    gezondheid_score = 100 - ((totale_uitgaven_maand / inkomen_maand) * 100)
     gezondheid_score = max(0, min(100, gezondheid_score))
 else:
     gezondheid_score = 0
 
 st.metric("💚 Gezondheidsscore", f"{gezondheid_score:.0f} / 100", help="Gebaseerd op verhouding tussen uitgaven en inkomen")
 
-# Alternatief: visuele meter via plotly
+# Optionele visualisatie
 import plotly.graph_objects as go
 
 fig_score = go.Figure(go.Indicator(
@@ -172,7 +173,9 @@ fig_score = go.Figure(go.Indicator(
         ],
     }
 ))
+
 st.plotly_chart(fig_score, use_container_width=True)
+
 
 
 # ----------------------------
