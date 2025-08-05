@@ -8,8 +8,8 @@ def laad_data():
     st.write("📁 Bestand gevonden, laden maar...")
     df = pd.read_excel("huishoud.xlsx", sheet_name="Data", engine="openpyxl")
     st.write("✅ Data geladen!")
-    df['Datum'] = pd.to_datetime(df['Datum'], errors='coerce')
-    df = df.dropna(subset=['Datum', 'Bedrag'])
+    df['datum'] = pd.to_datetime(df['datum'], errors='coerce')
+    df = df.dropna(subset=['datum', 'Bedrag'])
     return df
 
 df = laad_data()
