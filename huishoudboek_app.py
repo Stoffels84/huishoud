@@ -230,6 +230,44 @@ else:
 # ----------------------------
 st.subheader("📊 Vergelijking: Uitgaven per maand")
 
+# ----------------------------
+# 🔔 Automatische waarschuwing bij hoge uitgaven
+# ----------------------------
+
+# Filter alleen uitgaven (geen inkomen)
+df_alleen_uitgaven = df_filtered[df_filtered['categorie'].str.lower() != 'inkomsten loon'].copy()
+df_alleen_uitgaven['maand_naam'] = df_alleen_uitgaven['maand_naam'].astype(maand_type)
+
+# Totaal per maand berekenen
+totaal_per_maand = (
+    df_alleen_uitgaven
+    .groupby('maand_naam')['bedrag']
+    .sum()
+    .reindex(maand_volgorde)
+    .dropna()
+    .abs()
+)
+
+if geselecteerde_maand in totaal_per_maand.index:
+    huidige_maand_bedrag = totaal_per_maand[geselecteerde_maand]
+
+    # Gemiddelde van alle andere maanden (excl. huidige)
+    overige_maanden = totaal_per_maand.drop(geselecteerde_maand)
+    gemiddeld_bedrag = overige_maanden.mean() if not overige_maanden.empty else None
+
+    if gemiddeld_bedrag:
+        verschil_pct = ((huidige_maand_bedrag - gemiddeld_bedrag) / gemiddeld_bedrag) * 100
+
+        if verschil_pct > 20:
+            st.error(f"🔺 Je hebt deze maand **{verschil_pct:.1f}% meer** uitgegeven dan gemiddeld. Even opletten! 🔴")
+        elif verschil_pct < -20:
+            st.success(f"🔻 Goed bezig! Je gaf deze maand **{abs(verschil_pct):.1f}% minder** uit dan gemiddeld. 💚")
+        else:
+            st.info(f"⚖️ Je uitgaven liggen deze maand rond het gemiddelde ({verschil_pct:.1f}%).")
+    else:
+        st.info("ℹ️ Niet genoeg gegevens om het gemiddelde te berekenen.")
+
+
 # Alleen uitgaven (geen loon)
 df_uitgaven = df_filtered[df_filtered['categorie'].str.lower() != 'inkomsten loon'].copy()
 df_uitgaven['maand_naam'] = df_uitgaven['maand_naam'].astype(maand_type)
