@@ -9,7 +9,7 @@ def laad_data():
     df = pd.read_excel("huishoud.xlsx", sheet_name="Data", engine="openpyxl")
     st.write("✅ Data geladen!")
     df['datum'] = pd.to_datetime(df['datum'], errors='coerce')
-    df = df.dropna(subset=['datum', 'edrag'])
+    df = df.dropna(subset=['datum', 'bedrag'])
     return df
 
 df = laad_data()
