@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import calendar
+from pandas.api.types import CategoricalDtype
 
 st.set_page_config(page_title="Huishoudboekje", layout="wide")
 st.title("📊 Huishoudboekje Dashboard")
@@ -24,17 +25,17 @@ def laad_data():
                 st.error(f"Kolom '{kolom}' ontbreekt in Excel-bestand.")
                 st.stop()
 
-        # Datatypes omzetten
+        # Data opschonen
         df['datum'] = pd.to_datetime(df['datum'], errors='coerce')
         df['bedrag'] = pd.to_numeric(df['bedrag'], errors='coerce')
         df['categorie'] = df['categorie'].astype(str).str.strip().str.title()
         df['vast/variabel'] = df.get('vast/variabel', 'Onbekend').astype(str).str.strip().str.title()
 
-        # Extra kolommen
+        # Maandnamen toevoegen
         df['maand'] = df['datum'].dt.month
         df['maand_naam'] = df['datum'].dt.month.apply(lambda x: calendar.month_name[x])
 
-        # Opschonen: geen lege of ontbrekende categorie of bedrag
+        # Onvolledige rijen verwijderen
         df = df.dropna(subset=['datum', 'bedrag', 'categorie'])
         df = df[df['categorie'].str.strip() != ""]
 
@@ -67,28 +68,34 @@ if df_filtered.empty:
     st.stop()
 
 # ----------------------------
-# 📊 Metrics met correcte saldi
+# 🧭 Maanden sorteren op volgorde
 # ----------------------------
 
-# Filters
+maand_volgorde = list(calendar.month_name)[1:]  # ['January', ..., 'December']
+maand_type = CategoricalDtype(categories=maand_volgorde, ordered=True)
+
+df_filtered['maand_naam'] = df_filtered['maand_naam'].astype(maand_type)
 df_loon = df_filtered[df_filtered['categorie'].str.lower() == 'inkomsten loon']
+df_loon['maand_naam'] = df_loon['maand_naam'].astype(maand_type)
+
+# ----------------------------
+# 📊 Metrics met saldi
+# ----------------------------
+
 df_vast = df_filtered[df_filtered['vast/variabel'] == 'Vast']
 df_variabel = df_filtered[df_filtered['vast/variabel'] == 'Variabel']
 
-# Netto saldi
 inkomen = df_loon['bedrag'].sum()
 vast_saldo = df_vast['bedrag'].sum()
 variabel_saldo = df_variabel['bedrag'].sum()
 totaal_saldo = inkomen + vast_saldo + variabel_saldo
 
-# Percentages t.o.v. inkomen
 def pct(v, t): return f"{(v/t*100):.1f}%" if t != 0 else "0%"
 
 pct_vast = pct(vast_saldo, inkomen)
 pct_variabel = pct(variabel_saldo, inkomen)
 pct_totaal = pct(totaal_saldo, inkomen)
 
-# 📈 Metrics tonen
 col1, col2, col3, col4 = st.columns(4)
 col1.metric("📈 Inkomen", f"€ {inkomen:,.2f}", "100%")
 col2.metric("📌 Vaste kosten", f"€ {vast_saldo:,.2f}", f"{pct_vast} van inkomen")
@@ -96,11 +103,10 @@ col3.metric("📎 Variabele kosten", f"€ {variabel_saldo:,.2f}", f"{pct_variab
 col4.metric("💰 Totaal saldo", f"€ {totaal_saldo:,.2f}", f"{pct_totaal} van inkomen")
 
 # ----------------------------
-# 📋 Draaitabellen (zonder lege rijen)
+# 📋 Draaitabellen
 # ----------------------------
 
 def toon_draaitabel(data, titel):
-    # Opschonen
     data = data.copy()
     data['categorie'] = data['categorie'].astype(str).str.strip()
     data = data[data['categorie'].notna() & (data['categorie'] != "")]
@@ -110,7 +116,6 @@ def toon_draaitabel(data, titel):
         return
 
     st.markdown(f"### {titel}")
-
     pivot = pd.pivot_table(
         data,
         index='categorie',
@@ -121,51 +126,48 @@ def toon_draaitabel(data, titel):
         margins=True,
         margins_name='Totaal'
     )
-
-    maand_volgorde = list(calendar.month_name)[1:] + ['Totaal']
-    pivot = pivot.reindex(columns=[m for m in maand_volgorde if m in pivot.columns])
-
-    # 🔍 GEEN .applymap — gebruik format()
+    pivot = pivot.reindex(columns=[m for m in maand_volgorde if m in pivot.columns] + ['Totaal'])
     st.dataframe(pivot.style.format("€ {:,.2f}"), use_container_width=True, height=400)
-
-# ----------------------------
-# 📂 Draaitabellen tonen
-# ----------------------------
 
 st.subheader("📂 Overzicht per groep")
 toon_draaitabel(df_loon, "💼 Inkomsten: Loon")
 toon_draaitabel(df_vast, "📌 Vaste kosten")
 toon_draaitabel(df_variabel, "📎 Variabele kosten")
 
-
 # ----------------------------
 # 📊 Grafieken
 # ----------------------------
 
-
 st.subheader("📈 Grafieken per maand en categorie")
 
-# 📅 Inkomen per maand (chronologisch)
-maanden = list(calendar.month_name)[1:]  # ['January', 'February', ...]
+# 📈 Inkomen per maand (chronologisch)
 inkomen_per_maand = (
     df_loon.groupby('maand_naam')['bedrag']
     .sum()
-    .reindex(maanden)
+    .sort_index()
     .fillna(0)
 )
-
 st.markdown("#### 📈 Inkomen per maand")
 st.line_chart(inkomen_per_maand)
 
-# 📌 Vaste en variabele kosten per maand (chronologisch)
+# 📉 Vaste & variabele kosten per maand (chronologisch)
 kosten_per_maand = (
     df_filtered[df_filtered['vast/variabel'].isin(['Vast', 'Variabel'])]
     .groupby(['maand_naam', 'vast/variabel'])['bedrag']
     .sum()
     .unstack()
-    .reindex(maanden)
+    .sort_index()
     .fillna(0)
 )
-
 st.markdown("#### 📉 Vaste en variabele kosten per maand")
 st.line_chart(kosten_per_maand)
+
+# 📦 Saldo per categorie (excl. Inkomsten Loon)
+saldo_per_categorie = (
+    df_filtered[df_filtered['categorie'].str.lower() != 'inkomsten loon']
+    .groupby('categorie')['bedrag']
+    .sum()
+    .sort_values()
+)
+st.markdown("#### 📦 Saldo per categorie (zonder 'Inkomsten Loon')")
+st.bar_chart(saldo_per_categorie)
