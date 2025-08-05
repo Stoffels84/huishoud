@@ -9,21 +9,31 @@ st.title("📊 Huishoudboekje Dashboard")
 def laad_data():
     st.write("📁 Bestand gevonden, laden maar...")
     df = pd.read_excel("huishoud.xlsx", sheet_name="Data", engine="openpyxl")
-    st.success("✅ Data geladen!")
 
-    # Kolommen opschonen
+    # Check kolomnamen
+    st.write("🧾 Kolomnamen in bestand:", df.columns.tolist())
+
     df.columns = df.columns.str.strip().str.lower()
     df['datum'] = pd.to_datetime(df['datum'], errors='coerce')
+
+    # Check type van 'bedrag'
+    st.write("📊 Unieke types in 'bedrag':", df['bedrag'].map(type).unique())
+
+    df['bedrag'] = pd.to_numeric(df['bedrag'], errors='coerce')  # heel belangrijk!
+
     df = df.dropna(subset=['datum', 'bedrag'])
 
     df['categorie'] = df['categorie'].astype(str).str.strip().str.title()
     df['vast/variabel'] = df['vast/variabel'].astype(str).str.strip().str.title()
 
-    # Maandnaam toevoegen
     df['maand'] = df['datum'].dt.month
     df['maand_naam'] = df['datum'].dt.month.apply(lambda x: calendar.month_name[x])
 
+    # Laat 5 rijen zien om te checken
+    st.write("📄 Voorbeeld data:", df.head())
+
     return df
+
 
 df = laad_data()
 
