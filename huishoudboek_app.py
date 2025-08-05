@@ -24,7 +24,7 @@ def laad_data():
                 st.error(f"Kolom '{kolom}' ontbreekt in Excel-bestand.")
                 st.stop()
 
-        # Data omzetten
+        # Datatypes omzetten
         df['datum'] = pd.to_datetime(df['datum'], errors='coerce')
         df['bedrag'] = pd.to_numeric(df['bedrag'], errors='coerce')
         df['categorie'] = df['categorie'].astype(str).str.strip().str.title()
@@ -34,7 +34,7 @@ def laad_data():
         df['maand'] = df['datum'].dt.month
         df['maand_naam'] = df['datum'].dt.month.apply(lambda x: calendar.month_name[x])
 
-        # Verwijder rijen zonder datum/bedrag
+        # Rijen zonder datum/bedrag verwijderen
         df = df.dropna(subset=['datum', 'bedrag'])
 
         st.success("✅ Data geladen!")
@@ -96,27 +96,28 @@ def toon_draaitabel(data, titel):
         values='bedrag',
         aggfunc='sum',
         fill_value=0,
-        margins=True,
+        margins=True,             # ➕ Rij onderaan met totaal per maand
         margins_name='Totaal'
     )
 
+    # Juiste volgorde van maanden
     maand_volgorde = list(calendar.month_name)[1:] + ['Totaal']
     pivot = pivot.reindex(columns=[m for m in maand_volgorde if m in pivot.columns])
 
-    # Waarden als euro opmaken
+    # Waarden formatteren als euro
     pivot = pivot.applymap(lambda x: f"€ {x:,.2f}")
     st.dataframe(pivot, use_container_width=True, height=400)
 
 # ----------------------------
-# 📂 Draaitabellen
+# 📂 Draaitabellen per groep
 # ----------------------------
 
 st.subheader("📂 Overzicht per groep")
 
-# Data splitsen
+# Filteren per type
+df_loon = df_filtered[df_filtered['categorie'].str.lower() == 'inkomsten loon']
 df_vast = df_filtered[df_filtered['vast/variabel'] == 'Vast']
 df_variabel = df_filtered[df_filtered['vast/variabel'] == 'Variabel']
-df_loon = df_filtered[df_filtered['categorie'].str.lower() == 'inkomsten loon']
 
 # Draaitabellen tonen
 toon_draaitabel(df_loon, "💼 Inkomsten: Loon")
