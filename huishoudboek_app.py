@@ -256,30 +256,32 @@ st.plotly_chart(fig_vergelijking, use_container_width=True)
 # ----------------------------
 # 🔍 Automatische analyse huidig vs. vorige maand
 # ----------------------------
-# Huidige maand: uit dropdown geselecteerd
-huidige_maand = geselecteerde_maand
+# ----------------------------
+# 🔍 Automatische analyse huidig vs. vorige maand (betere versie)
+# ----------------------------
+aanwezige_maanden = [m for m in maand_volgorde if m in uitgaven_per_maand.index and uitgaven_per_maand[m] > 0]
 
-# Index van de maand bepalen
-maand_index = maand_volgorde.index(huidige_maand)
+if huidige_maand in aanwezige_maanden:
+    huidig_index = aanwezige_maanden.index(huidige_maand)
 
-# Probeer vorige maand te pakken
-if maand_index > 0:
-    vorige_maand = maand_volgorde[maand_index - 1]
-    
-    huidig_bedrag = uitgaven_per_maand.get(huidige_maand, 0)
-    vorig_bedrag = uitgaven_per_maand.get(vorige_maand, 0)
+    if huidig_index > 0:
+        vorige_maand = aanwezige_maanden[huidig_index - 1]
 
-    if vorig_bedrag > 0:
-        verschil_pct = ((huidig_bedrag - vorig_bedrag) / vorig_bedrag) * 100
+        huidig_bedrag = uitgaven_per_maand[huidige_maand]
+        vorig_bedrag = uitgaven_per_maand[vorige_maand]
 
-        if verschil_pct < -5:
-            st.success(f"🟢 Goed gedaan! Je gaf deze maand {abs(verschil_pct):.1f}% minder uit dan in {vorige_maand}.")
-        elif verschil_pct > 5:
-            st.error(f"🔴 Let op! Je gaf deze maand {verschil_pct:.1f}% meer uit dan in {vorige_maand}.")
+        if vorig_bedrag > 0:
+            verschil_pct = ((huidig_bedrag - vorig_bedrag) / vorig_bedrag) * 100
+
+            if verschil_pct < -5:
+                st.success(f"🟢 Goed gedaan! Je gaf {abs(verschil_pct):.1f}% minder uit dan in {vorige_maand}.")
+            elif verschil_pct > 5:
+                st.error(f"🔴 Let op! Je gaf {verschil_pct:.1f}% meer uit dan in {vorige_maand}.")
+            else:
+                st.info(f"ℹ️ Je uitgaven in {huidige_maand} zijn vergelijkbaar met {vorige_maand} ({verschil_pct:.1f}%).")
         else:
-            st.info(f"ℹ️ Je uitgaven in {huidige_maand} zijn vergelijkbaar met {vorige_maand} ({verschil_pct:.1f}%).")
+            st.info(f"ℹ️ Geen uitgaven in {vorige_maand} om mee te vergelijken.")
     else:
-        st.info(f"ℹ️ Geen uitgaven gevonden in {vorige_maand} om mee te vergelijken.")
-else:
-    st.info("ℹ️ Geen eerdere maand beschikbaar om mee te vergelijken.")
+        st.info("ℹ️ Geen eerdere maand beschikbaar om mee te vergelijken.")
+
 
