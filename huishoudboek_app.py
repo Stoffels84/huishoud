@@ -44,6 +44,8 @@ with st.sidebar:
     eind_datum = st.date_input("Tot", df['datum'].max())
 
 df_filtered = df[(df['datum'] >= pd.to_datetime(start_datum)) & (df['datum'] <= pd.to_datetime(eind_datum))]
+st.write("🔍 Aantal gefilterde rijen:", len(df_filtered))
+
 
 # 🔄 Draaitabel per categorie & maand
 st.subheader("📊 Uitgaven & inkomsten per categorie en maand")
