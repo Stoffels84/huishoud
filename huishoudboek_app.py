@@ -1,8 +1,8 @@
 import streamlit as st
 import pandas as pd
 import calendar
-from pandas.api.types import CategoricalDtype
 import plotly.express as px
+from pandas.api.types import CategoricalDtype
 
 
 st.set_page_config(page_title="Huishoudboekje", layout="wide")
