@@ -20,7 +20,7 @@ with st.sidebar:
     start_datum = st.date_input("Van", df['datum'].min())
     eind_datum = st.date_input("Tot", df['datum'].max())
 
-df_filtered = df[(df['datum'] >= pd.to_datetime(start_datum)) & (df['Datum'] <= pd.to_datetime(eind_datum))]
+df_filtered = df[(df['datum'] >= pd.to_datetime(start_datum)) & (df['datum'] <= pd.to_datetime(eind_datum))]
 
 # Totalen
 totaal = df_filtered['bedrag'].sum()
