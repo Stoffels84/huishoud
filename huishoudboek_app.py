@@ -17,8 +17,8 @@ df = laad_data()
 # Filters
 with st.sidebar:
     st.header("📅 Filter op periode")
-    start_datum = st.date_input("Van", df['Datum'].min())
-    eind_datum = st.date_input("Tot", df['Datum'].max())
+    start_datum = st.date_input("Van", df['datum'].min())
+    eind_datum = st.date_input("Tot", df['datum'].max())
 
 df_filtered = df[(df['Datum'] >= pd.to_datetime(start_datum)) & (df['Datum'] <= pd.to_datetime(eind_datum))]
 
