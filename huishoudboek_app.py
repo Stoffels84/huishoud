@@ -169,5 +169,3 @@ kosten_per_maand = (
 
 st.markdown("#### 📉 Vaste en variabele kosten per maand")
 st.line_chart(kosten_per_maand)
-
-st.markdown("#### 📦 Saldo per categorie (zonder 'Inkomsten Loon')")
