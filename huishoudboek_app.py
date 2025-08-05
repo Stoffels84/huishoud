@@ -383,27 +383,27 @@ else:
 # ----------------------------
 # 🤖 AI: Stel je vraag aan je huishoudboek
 # ----------------------------
-from pandasai import SmartDataframe
-from pandasai.llm import OpenAI
+import openai
 
-st.subheader("🤖 Stel je vraag aan AI")
+st.subheader("🤖 AI Analyse (zonder pandasai)")
 
-openai_api_key = st.text_input("🔑 Voer je OpenAI API Key in", type="password")
+api_key = st.text_input("Voer je OpenAI API key in", type="password")
 
-if openai_api_key:
-    try:
-        llm = OpenAI(api_token=openai_api_key)
-        df_slim = SmartDataframe(df_filtered, config={"llm": llm})
-
-        vraag = st.text_input("💬 Wat wil je weten?", placeholder="Bijv. Wat was mijn grootste uitgave in juli?")
-        if vraag:
-            with st.spinner("AI is aan het nadenken..."):
-                antwoord = df_slim.chat(vraag)
-                st.success("✅ Antwoord van AI:")
-                st.write(antwoord)
-
-    except Exception as e:
-        st.error(f"⚠️ Er is iets misgegaan met AI: {e}")
-else:
-    st.info("💡 Voeg je OpenAI API Key toe om deze functie te gebruiken.")
-
+if api_key:
+    vraag = st.text_area("Wat wil je weten over je data?", placeholder="Bijv. Wat was mijn grootste uitgave in juli?")
+    
+    if st.button("Stel vraag aan AI") and vraag:
+        try:
+            prompt = f"""Je bent een financiële assistent. Analyseer deze huishouddata:\n\n{df_filtered.head(20).to_csv(index=False)}\n\nVraag: {vraag}"""
+            
+            openai.api_key = api_key
+            response = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.2
+            )
+            antwoord = response['choices'][0]['message']['content']
+            st.success("Antwoord van AI:")
+            st.write(antwoord)
+        except Exception as e:
+            st.error(f"Fout bij AI: {e}")
