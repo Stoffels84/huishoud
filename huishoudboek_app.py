@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import calendar
 from pandas.api.types import CategoricalDtype
+import plotly.express as px
+
 
 st.set_page_config(page_title="Huishoudboekje", layout="wide")
 st.title("📊 Huishoudboekje Dashboard")
@@ -66,6 +68,10 @@ st.write("🔍 Aantal gefilterde rijen:", len(df_filtered))
 if df_filtered.empty:
     st.warning("⚠️ Geen data in deze periode.")
     st.stop()
+
+with st.sidebar:
+    unieke_maanden = df_filtered['maand_naam'].dropna().unique()
+    geselecteerde_maand = st.selectbox("📆 Kies een maand voor uitgavenanalyse", sorted(unieke_maanden, key=lambda x: maand_volgorde.index(x)))
 
 # ----------------------------
 # 🧭 Maanden sorteren op volgorde
@@ -161,4 +167,28 @@ kosten_per_maand = (
 )
 st.markdown("#### 📉 Vaste en variabele kosten per maand")
 st.line_chart(kosten_per_maand)
+
+st.subheader(f"🍩 Uitgaven per categorie in {geselecteerde_maand} (excl. 'Inkomsten Loon')")
+
+df_donut = df_filtered[
+    (df_filtered['maand_naam'] == geselecteerde_maand) &
+    (df_filtered['categorie'].str.lower() != 'inkomsten loon')
+]
+
+if df_donut.empty:
+    st.info("ℹ️ Geen uitgaven gevonden voor deze maand.")
+else:
+    donut_data = df_donut.groupby('categorie')['bedrag'].sum().reset_index()
+    donut_data['bedrag'] = donut_data['bedrag'].abs()  # Zorg dat alle waarden positief zijn
+
+    fig = px.pie(
+        donut_data,
+        names='categorie',
+        values='bedrag',
+        hole=0.4,
+        title=f"Verdeling uitgaven in {geselecteerde_maand}"
+    )
+    fig.update_traces(textinfo='percent+label')
+    st.plotly_chart(fig, use_container_width=True)
+
 
