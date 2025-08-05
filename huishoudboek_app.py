@@ -102,11 +102,12 @@ totaal_saldo = inkomen + vast_saldo + variabel_saldo
 
 def pct(v, t): return f"{(v/t*100):.1f}%" if t != 0 else "0%"
 
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("📈 Inkomen", f"€ {inkomen:,.2f}", "100%")
-col2.metric("📌 Vaste kosten", f"€ {vast_saldo:,.2f}", f"{pct(vast_saldo, inkomen)} van inkomen")
-col3.metric("📎 Variabele kosten", f"€ {variabel_saldo:,.2f}", f"{pct(variabel_saldo, inkomen)} van inkomen")
-col4.metric("💰 Totaal saldo", f"€ {totaal_saldo:,.2f}", f"{pct(totaal_saldo, inkomen)} van inkomen")
+with st.container():
+    st.metric("📈 Inkomen", f"€ {inkomen:,.2f}", "100%")
+    st.metric("📌 Vaste kosten", f"€ {vast_saldo:,.2f}", f"{pct(vast_saldo, inkomen)} van inkomen")
+    st.metric("📎 Variabele kosten", f"€ {variabel_saldo:,.2f}", f"{pct(variabel_saldo, inkomen)} van inkomen")
+    st.metric("💰 Totaal saldo", f"€ {totaal_saldo:,.2f}", f"{pct(totaal_saldo, inkomen)} van inkomen")
+
 
 # ----------------------------
 # 💡 Financiële gezondheidsscore
