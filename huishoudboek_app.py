@@ -124,7 +124,8 @@ vast_saldo = df_vast['bedrag'].sum()
 variabel_saldo = df_variabel['bedrag'].sum()
 totaal_saldo = inkomen + vast_saldo + variabel_saldo
 
-def pct(v, t): return f"{(v/t*100):.1f}%" if t != 0 else "0%"
+def pct(v, t): 
+    return f"{(v/t*100):.1f}%" if t != 0 else "0%"
 
 col1, col2, col3, col4 = st.columns(4)
 col1.metric("📈 Inkomen", f"€ {inkomen:,.2f}", "100%")
