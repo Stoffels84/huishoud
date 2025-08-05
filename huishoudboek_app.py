@@ -69,15 +69,19 @@ if df_filtered.empty:
 # 📊 Metrics
 # ----------------------------
 
+# ----------------------------
+# 📊 Metrics met correcte saldi per groep
+# ----------------------------
+
 # Filters
 df_loon = df_filtered[df_filtered['categorie'].str.lower() == 'inkomsten loon']
 df_vast = df_filtered[df_filtered['vast/variabel'] == 'Vast']
 df_variabel = df_filtered[df_filtered['vast/variabel'] == 'Variabel']
 
-# Berekeningen
+# ✅ Saldi: gewoon optellen (positief + negatief)
 inkomen = df_loon['bedrag'].sum()
 vast_saldo = df_vast['bedrag'].sum()
-variabel_saldo = df_variabel[df_variabel['bedrag'] < 0]['bedrag'].sum()  # Alleen negatieve uitgaven
+variabel_saldo = df_variabel['bedrag'].sum()
 totaal_saldo = inkomen + vast_saldo + variabel_saldo
 
 # Percentages t.o.v. inkomen
@@ -93,6 +97,7 @@ col1.metric("📈 Inkomen", f"€ {inkomen:,.2f}", "100%")
 col2.metric("📌 Vaste kosten", f"€ {vast_saldo:,.2f}", f"{pct_vast} van inkomen")
 col3.metric("📎 Variabele kosten", f"€ {variabel_saldo:,.2f}", f"{pct_variabel} van inkomen")
 col4.metric("💰 Totaal saldo", f"€ {totaal_saldo:,.2f}", f"{pct_totaal} van inkomen")
+
 
 # ----------------------------
 # 📋 Optioneel: draaitabellen per groep
