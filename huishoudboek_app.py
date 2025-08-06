@@ -38,7 +38,7 @@ def laad_data():
 
         # Maandnamen toevoegen
         df['maand'] = df['datum'].dt.month
-        df['maand_naam'] = df['datum'].dt.month.apply(lambda x: calendar.month_name[x])
+        df['maand_naam'] = df['datum'].dt.month.apply(lambda x: calendar.month_name[int(x)] if pd.notnull(x) else "")
 
         # Onvolledige rijen verwijderen
         df = df.dropna(subset=['datum', 'bedrag', 'categorie'])
