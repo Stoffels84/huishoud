@@ -118,7 +118,20 @@ col_m1, col_m2, col_m3, col_m4 = st.columns(4)
 col_m1.metric("📈 Inkomen", f"€ {inkomen_m:,.2f}")
 col_m2.metric("📌 Vaste kosten (saldo)", f"€ {vast_saldo_m:,.2f}", f"{pct_abs(vast_saldo_m, inkomen_m)} van inkomen")
 col_m3.metric("📎 Variabele kosten (saldo)", f"€ {variabel_saldo_m:,.2f}", f"{pct_abs(variabel_saldo_m, inkomen_m)} van inkomen")
-col_m4.metric("💰 Netto saldo maand", f"€ {totaal_saldo_m:,.2f}")
+# Netto saldo + % van inkomen (met teken)
+if inkomen_m and inkomen_m != 0:
+    saldo_pct = (totaal_saldo_m / inkomen_m) * 100
+    saldo_delta = f"{saldo_pct:+.1f}% van inkomen"  # bv. +42.9% of -18.3%
+else:
+    saldo_delta = "—"
+
+col_m4.metric(
+    "💰 Netto saldo maand",
+    f"€ {totaal_saldo_m:,.2f}",
+    saldo_delta,
+    delta_color="normal"  # positief = groen, negatief = rood
+)
+
 
 
 # ----------------------------
