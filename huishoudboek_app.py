@@ -3,7 +3,6 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
-import matplotlib.pyplot as plt
 from pandas.api.types import CategoricalDtype
 
 # ----------------------------
@@ -22,14 +21,10 @@ MAANDEN_NL = [
 maand_type = CategoricalDtype(categories=MAANDEN_NL, ordered=True)
 
 # ----------------------------
-# 🧮 Helpers
+# 🧮 Helper voor percentages
 # ----------------------------
 def pct(value, total, *, signed=False, absolute=False):
-    """
-    Format percentage netjes.
-    - signed=True -> +/-
-    - absolute=True -> |value| / total
-    """
+    """Format percentage. signed=True => +/-, absolute=True => |value|/total."""
     if total is None or total == 0 or pd.isna(total):
         return "—"
     num = abs(value) if absolute else value
@@ -42,17 +37,13 @@ def pct(value, total, *, signed=False, absolute=False):
 @st.cache_data(show_spinner=False)
 def laad_data(pad="huishoud.xlsx"):
     df = pd.read_excel(pad, sheet_name="Data", engine="openpyxl")
-
-    # Kolomnamen opschonen
     df.columns = df.columns.str.strip().str.lower()
 
-    # Verplichte kolommen
     verplicht = ["datum", "bedrag", "categorie"]
     ontbreekt = [k for k in verplicht if k not in df.columns]
     if ontbreekt:
         raise ValueError(f"Ontbrekende kolommen: {', '.join(ontbreekt)}")
 
-    # Types & schoonmaak
     df["datum"] = pd.to_datetime(df["datum"], errors="coerce")
     df["bedrag"] = pd.to_numeric(df["bedrag"], errors="coerce")
     df["categorie"] = df["categorie"].astype(str).str.strip().str.title()
@@ -61,12 +52,10 @@ def laad_data(pad="huishoud.xlsx"):
         df["vast/variabel"] = "Onbekend"
     df["vast/variabel"] = df["vast/variabel"].astype(str).str.strip().str.title()
 
-    # Maandinfo (NL)
     df["maand"] = df["datum"].dt.month
     df["maand_naam"] = df["maand"].apply(lambda m: MAANDEN_NL[m-1] if pd.notnull(m) else "")
     df["maand_naam"] = df["maand_naam"].astype(maand_type)
 
-    # Onvolledige rijen weg
     df = df.dropna(subset=["datum", "bedrag", "categorie"])
     df = df[df["categorie"].str.strip() != ""]
 
@@ -112,31 +101,31 @@ with st.sidebar:
 # 📅 Maand-metrics (saldo)
 # ----------------------------
 st.subheader(f"📆 Overzicht voor {geselecteerde_maand}")
-
 df_maand = df_filtered[df_filtered["maand_naam"] == geselecteerde_maand].copy()
+
 is_loon = df_maand["categorie"].astype(str).str.strip().str.lower().eq("inkomsten loon")
 df_loon_m = df_maand[is_loon]
 df_vast_m = df_maand[df_maand["vast/variabel"] == "Vast"]
 df_variabel_m = df_maand[df_maand["vast/variabel"] == "Variabel"]
 
 inkomen_m = df_loon_m["bedrag"].sum()
-vast_saldo_m = df_vast_m["bedrag"].sum()            # saldo (meestal negatief)
-variabel_saldo_m = df_variabel_m["bedrag"].sum()    # saldo (meestal negatief)
+vast_saldo_m = df_vast_m["bedrag"].sum()
+variabel_saldo_m = df_variabel_m["bedrag"].sum()
 totaal_saldo_m = inkomen_m + vast_saldo_m + variabel_saldo_m
 
 col_m1, col_m2, col_m3, col_m4 = st.columns(4)
 col_m1.metric("📈 Inkomen", f"€ {inkomen_m:,.2f}", "100%")
-col_m2.metric("📌 Vaste kosten (saldo)", f"€ {vast_saldo_m:,.2f}", f"{pct(vast_saldo_m, inkomen_m, absolute=True)} van inkomen")
-col_m3.metric("📎 Variabele kosten (saldo)", f"€ {variabel_saldo_m:,.2f}", f"{pct(variabel_saldo_m, inkomen_m, absolute=True)} van inkomen")
+col_m2.metric("📌 Vaste kosten (saldo)", f"€ {vast_saldo_m:,.2f}", f"{pct(vast_saldo_m, inkomen_m, signed=True)} van inkomen", delta_color="normal")
+col_m3.metric("📎 Variabele kosten (saldo)", f"€ {variabel_saldo_m:,.2f}", f"{pct(variabel_saldo_m, inkomen_m, signed=True)} van inkomen", delta_color="normal")
 col_m4.metric("💰 Netto saldo maand", f"€ {totaal_saldo_m:,.2f}", f"{pct(totaal_saldo_m, inkomen_m, signed=True)} van inkomen", delta_color="normal")
 
 # ----------------------------
 # 📊 Financiële metrics (gehele periode)
 # ----------------------------
 is_loon_all = df_filtered["categorie"].astype(str).str.strip().str.lower().eq("inkomsten loon")
-df_loon = df_filtered[is_loon_all].copy()
-df_vast = df_filtered[df_filtered["vast/variabel"] == "Vast"].copy()
-df_variabel = df_filtered[df_filtered["vast/variabel"] == "Variabel"].copy()
+df_loon = df_filtered[is_loon_all]
+df_vast = df_filtered[df_filtered["vast/variabel"] == "Vast"]
+df_variabel = df_filtered[df_filtered["vast/variabel"] == "Variabel"]
 
 inkomen = df_loon["bedrag"].sum()
 vast_saldo = df_vast["bedrag"].sum()
@@ -145,15 +134,15 @@ totaal_saldo = inkomen + vast_saldo + variabel_saldo
 
 col1, col2, col3, col4 = st.columns(4)
 col1.metric("📈 Inkomen", f"€ {inkomen:,.2f}", "100%")
-col2.metric("📌 Vaste kosten", f"€ {vast_saldo:,.2f}", f"{pct(vast_saldo, inkomen, absolute=True)} van inkomen")
-col3.metric("📎 Variabele kosten", f"€ {variabel_saldo:,.2f}", f"{pct(variabel_saldo, inkomen, absolute=True)} van inkomen")
+col2.metric("📌 Vaste kosten (saldo)", f"€ {vast_saldo:,.2f}", f"{pct(vast_saldo, inkomen, signed=True)} van inkomen", delta_color="normal")
+col3.metric("📎 Variabele kosten (saldo)", f"€ {variabel_saldo:,.2f}", f"{pct(variabel_saldo, inkomen, signed=True)} van inkomen", delta_color="normal")
 col4.metric("💰 Totaal saldo", f"€ {totaal_saldo:,.2f}", f"{pct(totaal_saldo, inkomen, signed=True)} van inkomen", delta_color="normal")
 
 # ----------------------------
 # 💡 Financiële gezondheidsscore
 # ----------------------------
 st.subheader("💡 Financiële Gezondheid")
-totale_uitgaven = abs(vast_saldo) + abs(variabel_saldo)  # alleen uitgaande euro's
+totale_uitgaven = abs(vast_saldo) + abs(variabel_saldo)
 if inkomen > 0:
     gezondheid_score = 100 - ((totale_uitgaven / inkomen) * 100)
     gezondheid_score = max(0, min(100, gezondheid_score))
@@ -212,13 +201,10 @@ toon_draaitabel(df_variabel, "📎 Variabele kosten")
 # 📈 Grafieken
 # ----------------------------
 st.subheader("📈 Grafieken per maand en categorie")
-
-# 📈 Inkomen per maand (som)
 inkomen_per_maand = df_loon.groupby("maand_naam")["bedrag"].sum().sort_index().fillna(0)
 st.markdown("#### 📈 Inkomen per maand")
 st.line_chart(inkomen_per_maand, use_container_width=True)
 
-# 📉 Vaste & variabele kosten per maand (SALDO, dus geen abs)
 kosten_per_maand = (
     df_filtered[df_filtered["vast/variabel"].isin(["Vast", "Variabel"])]
     .groupby(["maand_naam", "vast/variabel"])["bedrag"]
@@ -230,7 +216,7 @@ kosten_per_maand = (
 st.markdown("#### 📉 Vaste en variabele kosten per maand (saldo)")
 st.line_chart(kosten_per_maand, use_container_width=True)
 
-# 🍩 Donut: uitgaven per categorie in gekozen maand (excl. loon) – absolute uitgaven
+# Donut: uitgaven per categorie (absolute bedragen)
 st.subheader(f"🍩 Uitgaven per categorie in {geselecteerde_maand} (excl. 'Inkomsten Loon')")
 df_donut = df_filtered[
     (df_filtered["maand_naam"] == geselecteerde_maand) &
@@ -246,53 +232,37 @@ else:
     st.plotly_chart(fig, use_container_width=True)
 
 # ----------------------------
-# 📊 Vergelijking & waarschuwing bij hoge uitgaven
+# 📊 Vergelijking: uitgaven per maand
 # ----------------------------
 st.subheader("📊 Vergelijking: Uitgaven per maand")
-
-# Alleen uitgaven (geen loon) voor vergelijking => absolute uitgaven
 df_alleen_uitgaven = df_filtered[~df_filtered["categorie"].astype(str).str.lower().eq("inkomsten loon")].copy()
 df_alleen_uitgaven["maand_naam"] = df_alleen_uitgaven["maand_naam"].astype(maand_type)
 
 totaal_per_maand = (
-    df_alleen_uitgaven
-    .groupby("maand_naam")["bedrag"]
-    .sum()
-    .reindex(MAANDEN_NL)
-    .dropna()
-    .abs()
+    df_alleen_uitgaven.groupby("maand_naam")["bedrag"].sum().reindex(MAANDEN_NL).dropna().abs()
 )
 
 if geselecteerde_maand in totaal_per_maand.index:
     huidige_maand_bedrag = totaal_per_maand[geselecteerde_maand]
     overige_maanden = totaal_per_maand.drop(geselecteerde_maand)
     gemiddeld_bedrag = overige_maanden.mean() if not overige_maanden.empty else None
-
     if gemiddeld_bedrag:
         verschil_pct = ((huidige_maand_bedrag - gemiddeld_bedrag) / gemiddeld_bedrag) * 100
         if verschil_pct > 20:
-            st.error(f"🔺 Je hebt deze maand **{verschil_pct:.1f}% meer** uitgegeven dan gemiddeld. Even opletten! 🔴")
+            st.error(f"🔺 Je hebt deze maand **{verschil_pct:.1f}% meer** uitgegeven dan gemiddeld. 🔴")
         elif verschil_pct < -20:
             st.success(f"🔻 Goed bezig! Je gaf deze maand **{abs(verschil_pct):.1f}% minder** uit dan gemiddeld. 💚")
         else:
-            st.info(f"⚖️ Je uitgaven liggen deze maand rond het gemiddelde ({verschil_pct:.1f}%).")
+            st.info(f"⚖️ Uitgaven liggen rond het gemiddelde ({verschil_pct:.1f}%).")
     else:
-        st.info("ℹ️ Niet genoeg gegevens om het gemiddelde te berekenen.")
+        st.info("ℹ️ Niet genoeg gegevens om te vergelijken.")
 
-# Barplot: totale uitgaven per maand (absolute uitgaven)
 uitgaven_per_maand = (
-    df_alleen_uitgaven
-    .groupby("maand_naam")["bedrag"]
-    .sum()
-    .reindex(MAANDEN_NL)
-    .fillna(0)
-    .abs()
+    df_alleen_uitgaven.groupby("maand_naam")["bedrag"].sum().reindex(MAANDEN_NL).fillna(0).abs()
 )
-
 fig_vergelijking = px.bar(
     uitgaven_per_maand.reset_index(),
-    x="maand_naam",
-    y="bedrag",
+    x="maand_naam", y="bedrag",
     labels={"maand_naam": "Maand", "bedrag": "Uitgaven (€)"},
     title="Totale uitgaven per maand",
     text_auto=".2s"
@@ -301,7 +271,7 @@ fig_vergelijking.update_layout(xaxis_title="Maand", yaxis_title="€")
 st.plotly_chart(fig_vergelijking, use_container_width=True)
 
 # ----------------------------
-# 📅 Kalenderweergave van uitgaven
+# 📅 Kalenderweergave
 # ----------------------------
 st.subheader("📅 Dagelijkse uitgaven (kalenderweergave)")
 df_kalender = df_filtered[~df_filtered["categorie"].astype(str).str.lower().eq("inkomsten loon")].copy()
@@ -309,7 +279,7 @@ dagelijkse_uitgaven = df_kalender.groupby(pd.to_datetime(df_kalender["datum"].dt
 dagelijkse_uitgaven.index = pd.to_datetime(dagelijkse_uitgaven.index)
 
 if dagelijkse_uitgaven.empty:
-    st.info("ℹ️ Geen uitgaven om weer te geven in de kalender.")
+    st.info("ℹ️ Geen uitgaven om weer te geven.")
 else:
     try:
         import calplot
@@ -317,10 +287,10 @@ else:
                                   suptitle="Uitgaven per dag", figsize=(10, 3))
         st.pyplot(fig)
     except Exception:
-        st.info("📅 Calplot niet beschikbaar; val terug op Plotly heatmap.")
+        st.info("📅 Calplot niet beschikbaar; fallback naar Plotly.")
         heat = dagelijkse_uitgaven.rename("bedrag").reset_index(names="datum")
         heat["jaar"] = heat["datum"].dt.year
         heat["dag"] = heat["datum"].dt.dayofyear
         fig = px.density_heatmap(heat, x="dag", y="jaar", z="bedrag",
-                                 title="Uitgaven per dag (heatmap)", nbinsx=53)
+                                 nbinsx=53, title="Uitgaven per dag (heatmap)")
         st.plotly_chart(fig, use_container_width=True)
