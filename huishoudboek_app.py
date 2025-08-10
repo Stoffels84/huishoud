@@ -38,6 +38,17 @@ def pct(value, total, *, signed=False, absolute=False):
     p = (num / total) * 100
     return f"{p:+.1f}%" if signed else f"{p:.1f}%"
 
+
+def _clamp(x, lo=0.0, hi=1.0):
+    try:
+        return float(min(max(x, lo), hi))
+    except Exception:
+        return np.nan
+
+def _safe_div(a, b):
+    return np.nan if (b is None or b == 0 or pd.isna(b)) else a / b
+
+
 # ============================================================
 # 📥 Data inladen (met optionele upload)
 # ============================================================
