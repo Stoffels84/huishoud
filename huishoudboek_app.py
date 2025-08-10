@@ -299,7 +299,8 @@ uitgaven_mnd = (
     .groupby("categorie")["bedrag"].sum().abs().sort_values(ascending=False)
 )
 
-cats = list(u itgaven_mnd.index)
+cats = list(uitgaven_mnd.index)
+
 if "budget_state" not in st.session_state:
     st.session_state.budget_state = pd.DataFrame({"categorie": cats, "budget": np.nan})
 
