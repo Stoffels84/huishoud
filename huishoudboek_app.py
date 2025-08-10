@@ -325,7 +325,7 @@ if not b_plot.empty:
     st.plotly_chart(fig_b, use_container_width=True)
 
 # 🔮 Prognose einde van de maand — alleen budgetten (geen dagen/tempo)
-st.subheader("🔮 Prognose einde van de maand (excl Variabele kosten")
+st.subheader("🔮 Prognose einde van de maand (excl variabele kosten")
 
 if not df_maand.empty:
     laatste_datum = df_maand["datum"].max()
