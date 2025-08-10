@@ -326,7 +326,8 @@ with st.expander("✏️ Stel budgetten in (per categorie)", expanded=False):
 
 # Combineer met werkelijke uitgaven
 budget_join = (
-    budget_df.set_index("categorie").join(u itgaven_mnd.rename("uitgave"), how="outer")
+    .join(uitgaven_mnd.rename("uitgave"), how="outer")
+
     .reset_index()
 )
 budget_join["budget"] = pd.to_numeric(budget_join["budget"], errors="coerce")
