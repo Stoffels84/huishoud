@@ -315,7 +315,7 @@ with st.expander("✏️ Stel budgetten in (per categorie)", expanded=False):
 budget_join = (
     budget_df.set_index("categorie")
              .join(uitgaven_mnd.set_index("categorie")["uitgave"], how="left")
-             .reset_index())
+             .reset_index()
 import streamlit as st
 import pandas as pd
 import numpy as np
