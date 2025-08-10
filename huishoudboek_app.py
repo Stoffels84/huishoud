@@ -273,30 +273,12 @@ if not b_plot.empty:
     )
     st.plotly_chart(fig_b, use_container_width=True)
 
-# ============================================================
-# 🔮 Prognose: einde van de maand — met budgetten
-# ============================================================
+# 🔮 Prognose einde van de maand — alleen budgetten (geen dagen/tempo)
 st.subheader("🔮 Prognose einde van de maand")
-
-# Kies prognosemethode
-methode = st.radio(
-    "Methode",
-    ["Tempo (huidig)", "Budgetcap", "Combi (min van beide)"],
-    index=2,
-    horizontal=True,
-    help=(
-        "Tempo: projecteert op basis van huidige uitgaven-snelheid.\n"
-        "Budgetcap: verwacht resterend = max(0, budget - uitgegeven) per categorie; geen budget = tempo.\n"
-        "Combi: per categorie het minimum van tempo-raming en budgetcap (default)."
-    ),
-    key="forecast_method",
-)
 
 if not df_maand.empty:
     laatste_datum = df_maand["datum"].max()
     jaar, mnd = laatste_datum.year, laatste_datum.month
-    dagen_in_maand = int(calendar.monthrange(jaar, mnd)[1])
-    dag_nr = int(laatste_datum.day)
 
     # Alle uitgaven (excl. inkomsten) in de geselecteerde jaar-maand
     mask_ym = (
@@ -307,59 +289,26 @@ if not df_maand.empty:
     df_ym = df_filtered[mask_ym].copy()
 
     if not df_ym.empty:
-        # Totaal tot en met vandaag
+        # Totaal uitgegeven tot en met vandaag
         uitg_tmv = abs(df_ym[df_ym["datum"] <= laatste_datum]["bedrag"].sum())
 
-        # Tempo-raming (fallback)
-        proj_tempo_totaal = (uitg_tmv / max(dag_nr, 1)) * dagen_in_maand
-
-        # Per categorie: reeds uitgegeven
+        # Reeds uitgegeven per categorie
         spent_per_cat = (
             df_ym[df_ym["datum"] <= laatste_datum]
             .groupby("categorie")["bedrag"].sum().abs()
         )
 
-        # Tempo-raming per categorie → resterend
-        resterend_tempo_per_cat = (
-            (spent_per_cat / max(dag_nr, 1) * dagen_in_maand) - spent_per_cat
-        ).clip(lower=0)
-
-        # Budget per categorie uit editor (kan NaN zijn)
+        # Budget per categorie uit editor
         budget_per_cat = (
             budget_join.set_index("categorie")["budget"].astype(float)
             if "budget" in budget_join.columns else pd.Series(dtype=float)
         )
-        resterend_budgetcap_per_cat = (budget_per_cat - spent_per_cat).clip(lower=0)
 
-        # Combineer volgens gekozen methode
-        if methode.startswith("Tempo"):
-            resterend_expect = resterend_tempo_per_cat.reindex(spent_per_cat.index).fillna(0)
-        elif methode == "Budgetcap":
-            # Zonder budget → tempo
-            resterend_expect = (
-                resterend_budgetcap_per_cat.reindex(spent_per_cat.index)
-                .where(budget_per_cat.reindex(spent_per_cat.index).notna(), resterend_tempo_per_cat)
-                .fillna(0)
-            )
-        else:  # Combi (min van beide)
-            resterend_expect = pd.concat(
-                [
-                    resterend_tempo_per_cat.reindex(spent_per_cat.index),
-                    resterend_budgetcap_per_cat.reindex(spent_per_cat.index),
-                ],
-                axis=1
-            ).min(axis=1).fillna(0)
+        # Alleen budgetten: resterend = max(0, budget - spent); geen budget => 0
+        resterend_per_cat = (budget_per_cat - spent_per_cat).clip(lower=0).fillna(0)
 
-        # Categorieën die nog niet voorkwamen maar wél budget hebben
-        ontbrekende = budget_per_cat.index.difference(spent_per_cat.index)
-        if len(ontbrekende) > 0:
-            if methode.startswith("Tempo"):
-                aanvulling = pd.Series(0.0, index=ontbrekende)
-            else:
-                aanvulling = budget_per_cat.loc[ontbrekende].clip(lower=0)
-            resterend_expect = pd.concat([resterend_expect, aanvulling])
-
-        proj = float(uitg_tmv + resterend_expect.sum())
+        # Prognose = al uitgegeven + wat er nog 'mag' volgens budget
+        proj = float(uitg_tmv + resterend_per_cat.sum())
 
         c1, c2, c3 = st.columns(3)
         c1.metric("Uitgaven tot en met vandaag", euro(uitg_tmv))
@@ -374,10 +323,7 @@ if not df_maand.empty:
             else:
                 st.success(f"✅ Verwachte uitgaven ({euro(proj)}) liggen binnen totaalbudget ({euro(totaal_budget)}).")
 
-        st.caption(
-            "Prognose-methode: " + methode +
-            ". Bij 'Combi' wordt per categorie het minimum van tempo-raming en budgetcap genomen."
-        )
+        st.caption("Prognose gebaseerd uitsluitend op budgetten: resterend = max(0, budget − uitgegeven).")
     else:
         st.info("ℹ️ Geen uitgaven gevonden voor de gekozen jaar-maand.")
 else:
