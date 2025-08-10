@@ -163,7 +163,7 @@ vast_saldo_m = df_vast_m["bedrag"].sum()
 variabel_saldo_m = df_variabel_m["bedrag"].sum()
 totaal_saldo_m = inkomen_m + vast_saldo_m + variabel_saldo_m
 
-c1, c2, c3, c4 = st.columns(4)
+    c1, c2, c3, c4 = st.columns(4)
     c1.metric("📈 Inkomen (trend)", euro(inkomen_m), delta=euro(delta_ink))
     c2.metric("📌 Vaste kosten (trend)", euro(vast_saldo_m), delta=euro(delta_vast))
     c3.metric("📎 Variabele kosten (trend)", euro(variabel_saldo_m), delta=euro(delta_var))
