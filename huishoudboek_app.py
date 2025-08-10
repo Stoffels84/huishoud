@@ -372,6 +372,26 @@ with col2:
 
 
 
+# ============================================================
+# 📊 Financiële metrics (gehele periode)
+# ============================================================
+is_loon_all = df_filtered["categorie"].astype(str).str.strip().str.lower().eq("inkomsten loon")
+df_loon = df_filtered[is_loon_all]
+df_vast = df_filtered[df_filtered["vast/variabel"] == "Vast"]
+df_variabel = df_filtered[df_filtered["vast/variabel"] == "Variabel"]
+
+inkomen = df_loon["bedrag"].sum()
+vast_saldo = df_vast["bedrag"].sum()
+variabel_saldo = df_variabel["bedrag"].sum()
+totaal_saldo = inkomen + vast_saldo + variabel_saldo
+
+c1, c2, c3, c4 = st.columns(4)
+c1.metric("📈 Inkomen", euro(inkomen), "—")
+c2.metric("📌 Vaste kosten (aandeel)", euro(vast_saldo), f"{pct(vast_saldo, inkomen, absolute=True)} van inkomen")
+c3.metric("📎 Variabele kosten (aandeel)", euro(variabel_saldo), f"{pct(variabel_saldo, inkomen, absolute=True)} van inkomen")
+c4.metric("💰 Totaal saldo", euro(totaal_saldo), f"{pct(totaal_saldo, inkomen, signed=True)} van inkomen")
+
+
 
 
 
@@ -450,33 +470,6 @@ else:
 
 
 
-
-
-
-
-
-
-
-
-
-# ============================================================
-# 📊 Financiële metrics (gehele periode)
-# ============================================================
-is_loon_all = df_filtered["categorie"].astype(str).str.strip().str.lower().eq("inkomsten loon")
-df_loon = df_filtered[is_loon_all]
-df_vast = df_filtered[df_filtered["vast/variabel"] == "Vast"]
-df_variabel = df_filtered[df_filtered["vast/variabel"] == "Variabel"]
-
-inkomen = df_loon["bedrag"].sum()
-vast_saldo = df_vast["bedrag"].sum()
-variabel_saldo = df_variabel["bedrag"].sum()
-totaal_saldo = inkomen + vast_saldo + variabel_saldo
-
-c1, c2, c3, c4 = st.columns(4)
-c1.metric("📈 Inkomen", euro(inkomen), "—")
-c2.metric("📌 Vaste kosten (aandeel)", euro(vast_saldo), f"{pct(vast_saldo, inkomen, absolute=True)} van inkomen")
-c3.metric("📎 Variabele kosten (aandeel)", euro(variabel_saldo), f"{pct(variabel_saldo, inkomen, absolute=True)} van inkomen")
-c4.metric("💰 Totaal saldo", euro(totaal_saldo), f"{pct(totaal_saldo, inkomen, signed=True)} van inkomen")
 
 # ============================================================
 # 🎯 Budgetdoelen per categorie — alleen VASTE kosten
