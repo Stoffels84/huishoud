@@ -312,7 +312,7 @@ with st.expander("✏️ Stel budgetten in (per categorie)", expanded=False):
     st.session_state.budget_state = budget_df
 
 # 5) Combineer budgetten met uitgaven
-budget_join = (
+budget_join = 
     budget_df.set_index("categorie")
              .join(uitgaven_mnd.set_index("categorie")["uitgave"], how="left")
              .reset_index()
