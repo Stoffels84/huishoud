@@ -399,69 +399,72 @@ with col2:
 # ============================================================
 # 🧪 Wat-als scenario
 # ============================================================
-st.subheader("🧪 Wat-als scenario")
+with st.expander("🧪 Wat-als scenario", expanded=False):
 
-with st.expander("⚙️ Stel wijzigingen in", expanded=False):
+    st.markdown("Pas hieronder je inkomsten of uitgaven aan om te zien wat er gebeurt.")
+
+    # Instellingen
     extra_inkomen = st.number_input("Extra inkomen per maand (€)", value=0.0, step=50.0)
     minder_vaste_kosten = st.number_input("Minder vaste kosten per maand (€)", value=0.0, step=50.0)
     minder_variabele_kosten = st.number_input("Minder variabele kosten per maand (€)", value=0.0, step=50.0)
 
-# Huidige basisgegevens (gehele periode)
-cat_all = df["categorie"].astype(str).str.strip().str.lower()
-is_loon_all = cat_all.eq("inkomsten loon")
+    # Huidige basisgegevens
+    cat_all = df["categorie"].astype(str).str.strip().str.lower()
+    is_loon_all = cat_all.eq("inkomsten loon")
 
-inkomen_all = df[is_loon_all]["bedrag"].sum()
-vaste_all = df[df["vast/variabel"].astype(str).str.strip().str.title() == "Vast"]["bedrag"].sum()
-variabele_all = df[df["vast/variabel"].astype(str).str.strip().str.title() == "Variabel"]["bedrag"].sum()
+    inkomen_all = df[is_loon_all]["bedrag"].sum()
+    vaste_all = df[df["vast/variabel"].astype(str).str.strip().str.title() == "Vast"]["bedrag"].sum()
+    variabele_all = df[df["vast/variabel"].astype(str).str.strip().str.title() == "Variabel"]["bedrag"].sum()
 
-# Bestaande uitgaven/inkomen ratio
-if inkomen_all != 0:
-    perc_base = abs((vaste_all + variabele_all) / inkomen_all) * 100
-else:
-    perc_base = None
+    # Bestaande uitgaven/inkomen ratio
+    if inkomen_all != 0:
+        perc_base = abs((vaste_all + variabele_all) / inkomen_all) * 100
+    else:
+        perc_base = None
 
-# Simulatie — maandbasis
-inkomen_sim = inkomen_all + extra_inkomen * len(df["datum"].dt.to_period("M").unique())
-vaste_sim = vaste_all - minder_vaste_kosten * len(df["datum"].dt.to_period("M").unique())
-variabele_sim = variabele_all - minder_variabele_kosten * len(df["datum"].dt.to_period("M").unique())
+    # Simulatie op maandbasis
+    maanden = len(df["datum"].dt.to_period("M").unique())
+    inkomen_sim = inkomen_all + extra_inkomen * maanden
+    vaste_sim = vaste_all - minder_vaste_kosten * maanden
+    variabele_sim = variabele_all - minder_variabele_kosten * maanden
 
-if inkomen_sim != 0:
-    perc_sim = abs((vaste_sim + variabele_sim) / inkomen_sim) * 100
-else:
-    perc_sim = None
+    if inkomen_sim != 0:
+        perc_sim = abs((vaste_sim + variabele_sim) / inkomen_sim) * 100
+    else:
+        perc_sim = None
 
-# Gauge voor simulatie
-if perc_sim is not None:
-    axis_max = max(120, min(200, (int(perc_sim // 10) + 2) * 10))
-    fig_sim_ratio = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=perc_sim,
-        number={'suffix': "%"},
-        gauge={
-            'axis': {'range': [0, axis_max]},
-            'bar': {'thickness': 0.3},
-            'steps': [
-                {'range': [0, 33.33], 'color': '#86efac'},
-                {'range': [33.33, 100], 'color': '#fcd34d'},
-                {'range': [100, axis_max], 'color': '#fca5a5'},
-            ],
-            'threshold': {
-                'line': {'color': 'black', 'width': 2},
-                'thickness': 0.75,
-                'value': 100
-            },
-        }
-    ))
-    fig_sim_ratio.update_layout(height=220, margin=dict(l=10, r=10, t=10, b=10))
+    # Gauge tonen
+    if perc_sim is not None:
+        axis_max = max(120, min(200, (int(perc_sim // 10) + 2) * 10))
+        fig_sim_ratio = go.Figure(go.Indicator(
+            mode="gauge+number",
+            value=perc_sim,
+            number={'suffix': "%"},
+            gauge={
+                'axis': {'range': [0, axis_max]},
+                'bar': {'thickness': 0.3},
+                'steps': [
+                    {'range': [0, 33.33], 'color': '#86efac'},
+                    {'range': [33.33, 100], 'color': '#fcd34d'},
+                    {'range': [100, axis_max], 'color': '#fca5a5'},
+                ],
+                'threshold': {
+                    'line': {'color': 'black', 'width': 2},
+                    'thickness': 0.75,
+                    'value': 100
+                },
+            }
+        ))
+        fig_sim_ratio.update_layout(height=220, margin=dict(l=10, r=10, t=10, b=10))
 
-    st.plotly_chart(fig_sim_ratio, use_container_width=True, key="wa_sim_ratio")
+        st.plotly_chart(fig_sim_ratio, use_container_width=True, key="wa_sim_ratio")
 
-    # Delta tonen
-    if perc_base is not None:
-        delta_val = perc_sim - perc_base
-        st.caption(f"Δ t.o.v. huidige situatie: {delta_val:+.1f}%")
-else:
-    st.info("ℹ️ Onvoldoende gegevens om scenario te berekenen.")
+        # Verschil met huidige situatie
+        if perc_base is not None:
+            delta_val = perc_sim - perc_base
+            st.caption(f"Δ t.o.v. huidige situatie: {delta_val:+.1f}%")
+    else:
+        st.info("ℹ️ Onvoldoende gegevens om scenario te berekenen.")
 
 
 
