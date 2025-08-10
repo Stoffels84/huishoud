@@ -281,6 +281,55 @@ else:
 
 
 
+# ============================================================
+# 🎯 Uitgaven t.o.v. inkomen — boogmeter (gefilterde periode)
+# ============================================================
+st.subheader("🎯 Uitgaven t.o.v. inkomen — boogmeter")
+
+cat = df_filtered["categorie"].astype(str).str.strip().str.lower()
+is_loon = cat.eq("inkomsten loon")
+
+inkomen = df_filtered[is_loon]["bedrag"].sum()
+uitgaven = df_filtered[~is_loon]["bedrag"].sum()  # vaak negatief in de data
+
+if pd.isna(inkomen) or inkomen == 0:
+    st.info("ℹ️ Geen inkomen gevonden in de huidige filterperiode, kan geen percentage berekenen.")
+else:
+    # ratio in %, op basis van absolute bedragen
+    perc = float(abs(uitgaven) / abs(inkomen) * 100.0)
+
+    fig_exp = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=perc,
+        number={'suffix': "%"},
+        title={'text': "Uitgaven / Inkomen (%)"},
+        gauge={
+            'axis': {'range': [0, 120]},               # laat ook lichte overschrijding >100% zien
+            'bar': {'thickness': 0.3},
+            # Kleurzones: groen < 33.33%, geel 33.33–66.67%, rood > 66.67%
+            'steps': [
+                {'range': [0, 33.33],  'color': '#86efac'},  # groen
+                {'range': [33.33, 66.67], 'color': '#fcd34d'},  # geel
+                {'range': [66.67, 120],  'color': '#fca5a5'},  # rood
+            ],
+            # Markeer de 1/3-drempel
+            'threshold': {
+                'line': {'color': 'black', 'width': 2},
+                'thickness': 0.75,
+                'value': 33.33
+            },
+        }
+    ))
+    fig_exp.update_layout(height=220, margin=dict(l=10, r=10, t=10, b=10))
+    st.plotly_chart(fig_exp, use_container_width=True)
+
+    st.caption(f"Huidige periode: uitgaven zijn {perc:.1f}% van het inkomen. "
+               "Groen als < 33.3%.")
+
+
+
+
+
 
 
 
