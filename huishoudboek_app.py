@@ -381,18 +381,7 @@ with col2:
 # ============================================================
 st.subheader("🧪 Wat-als scenario")
 
-# Helper functies als ze nog niet bestaan
-try:
-    _clamp
-    _safe_div
-except NameError:
-    def _clamp(x, lo=0.0, hi=1.0):
-        try:
-            return float(min(max(x, lo), hi))
-        except Exception:
-            return np.nan
-    def _safe_div(a, b):
-        return np.nan if (b is None or b == 0 or pd.isna(b)) else a / b
+
 
 # Basiskeuze: alle data of huidige filter
 basis = st.radio("Bereken op basis van:", ["Alle data", "Huidige filterperiode"], horizontal=True)
