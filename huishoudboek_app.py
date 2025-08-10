@@ -195,7 +195,10 @@ else:
 # ============================================================
 # 🧭 Financiële gezondheidscore (0–100) voor de geselecteerde maand
 # ============================================================
-st.subheader(f"🧭 Financiële gezondheidscore — {geselecteerde_maand}")
+# ============================================================
+# 🧭 Financiële gezondheidsscore (0–100) — SALDO-methode
+# ============================================================
+st.subheader(f"🧭 Financiële gezondheidsscore — {geselecteerde_maand}")
 
 def _clamp(x, lo=0.0, hi=1.0):
     try:
@@ -209,24 +212,29 @@ def _safe_div(a, b):
 if df_maand.empty:
     st.info("ℹ️ Geen data voor de geselecteerde maand om een score te berekenen.")
 else:
-    # --- Basis voor de geselecteerde maand
+    # --- Basis (saldo): behoud tekens uit de data
     is_loon_m = df_maand["categorie"].astype(str).str.strip().str.lower().eq("inkomsten loon")
-    inc_m = df_maand[is_loon_m]["bedrag"].sum()
-    fixed_m = df_maand[df_maand["vast/variabel"].astype(str).str.strip().str.title().eq("Vast") & ~is_loon_m]["bedrag"].sum()
-    var_m   = df_maand[df_maand["vast/variabel"].astype(str).str.strip().str.title().eq("Variabel") & ~is_loon_m]["bedrag"].sum()
+    inc_m = df_maand[is_loon_m]["bedrag"].sum()  # verwacht positief
+    fixed_m = df_maand[
+        (df_maand["vast/variabel"].astype(str).str.strip().str.title() == "Vast") & ~is_loon_m
+    ]["bedrag"].sum()  # vaak negatief
+    var_m = df_maand[
+        (df_maand["vast/variabel"].astype(str).str.strip().str.title() == "Variabel") & ~is_loon_m
+    ]["bedrag"].sum()  # vaak negatief
 
-    spend_fixed = fixed_m   # behoudt het teken
-    spend_var   = var_m     # behoudt het teken
-    saldo_maand = inc_m + spend_fixed + spend_var
-    savings_eur = saldo_maand  # dit is wat er echt overblijft
+    # SALDO van de maand
+    saldo_maand = inc_m + fixed_m + var_m
 
-    savings_rate = _clamp(_safe_div(max(0.0, savings_eur), abs(inc_m) if inc_m != 0 else np.nan))  # 0..1
+    # Spaarcomponent: wat blijft er over als % van inkomen (negatief saldo wordt 0)
+    savings_eur = saldo_maand
+    savings_rate = _clamp(_safe_div(savings_eur, inc_m))
 
-    # --- Aandeel vaste kosten (doel ≤ 50% van inkomen)
-    fixed_ratio = _safe_div(spend_fixed, abs(inc_m) if inc_m != 0 else np.nan)
+    # Aandeel vaste kosten als % van inkomen (gebruik absolute waarden voor aandeel)
+    fixed_ratio = _safe_div(abs(fixed_m), abs(inc_m) if inc_m != 0 else np.nan)
+    # Score = 1 bij ≤50%; lineair omlaag naar 0 bij ≥100%
     score_fixed = 1.0 if pd.isna(fixed_ratio) else (1.0 - _clamp((fixed_ratio - 0.5) / 0.5, 0, 1))
 
-    # --- Budget-overschrijding (alleen vaste categorieën) — ROBUUST
+    # Budget-overschrijding (alleen vaste categorieën) — robuust, gebruikt session_state
     score_budget = np.nan
     try:
         if "budget_state" in st.session_state and not st.session_state.budget_state.empty:
@@ -234,6 +242,7 @@ else:
             bj["budget"] = pd.to_numeric(bj["budget"], errors="coerce")
             bj = bj.dropna(subset=["budget"])
             if not bj.empty:
+                # vaste uitgaven (positief gemaakt voor vergelijking met budget)
                 uitgaven_mnd_ser = (
                     df_filtered[
                         (df_filtered["maand_naam"] == geselecteerde_maand) &
@@ -251,47 +260,49 @@ else:
     except Exception:
         score_budget = np.nan
 
-    # --- Trend t.o.v. vorige maand (netto saldo)
+    # Trend t.o.v. vorige maand — op SALDO-basis
     ref = df_maand["datum"].max()
     prev_year, prev_month = (ref.year - 1, 12) if ref.month == 1 else (ref.year, ref.month - 1)
     prev_mask = (df_filtered["datum"].dt.year == prev_year) & (df_filtered["datum"].dt.month == prev_month)
     df_prev = df_filtered[prev_mask].copy()
 
-    def _total_net(dfin):
+    def _net_saldo(dfin):
         cat = dfin["categorie"].astype(str).str.strip().str.lower()
         inc = dfin[cat.eq("inkomsten loon")]["bedrag"].sum()
         fx  = dfin[(dfin["vast/variabel"].astype(str).str.strip().str.title() == "Vast") & ~cat.eq("inkomsten loon")]["bedrag"].sum()
         vr  = dfin[(dfin["vast/variabel"].astype(str).str.strip().str.title() == "Variabel") & ~cat.eq("inkomsten loon")]["bedrag"].sum()
         return inc + fx + vr
 
-    net_curr = _total_net(df_maand)
-    net_prev = _total_net(df_prev) if not df_prev.empty else np.nan
+    net_curr = saldo_maand
+    net_prev = _net_saldo(df_prev) if not df_prev.empty else np.nan
     denom_trend = max(abs(net_prev) if not pd.isna(net_prev) else 0, abs(inc_m), 1.0)
     delta_net = net_curr - (net_prev if not pd.isna(net_prev) else 0.0)
+    # -denom → 0, +denom → 1, 0 → 0.5
     score_trend = _clamp(0.5 + 0.5 * (delta_net / denom_trend))
 
-    # --- Stabiliteit (volatiliteit laatste 6 maanden)
+    # Stabiliteit (volatiliteit van UITGAVEN, niet saldo) over laatste 6 mnd
     hist = (
         df_filtered[~df_filtered["categorie"].astype(str).str.lower().eq("inkomsten loon")]
         .assign(ym=df_filtered["datum"].dt.to_period("M"))
         .groupby("ym")["bedrag"].sum()
-        .abs()
+        .abs()  # we meten schommeling in kostenomvang
         .sort_index()
     )
     last6 = hist.tail(6)
     if len(last6) >= 3 and last6.mean() > 0:
         cv = last6.std(ddof=0) / last6.mean()
+        # 1 bij cv ≤ 0.10; 0 bij cv ≥ 0.50
         score_vol = 1.0 - _clamp((cv - 0.10) / 0.40, 0, 1)
     else:
         score_vol = np.nan
 
-    # --- Weging en berekening
+    # Weging & herweging
     components = {
-        "Sparen": (savings_rate, 0.40),
-        "Vaste-kosten": (score_fixed, 0.20),
-        "Budget": (score_budget, 0.20),
-        "Trend": (score_trend, 0.10),
-        "Stabiliteit": (score_vol, 0.10),
+        "Sparen (saldo/inkomen)": (savings_rate, 0.40),
+        "Vaste-kosten aandeel":   (score_fixed,   0.20),
+        "Budgetoverschrijding":   (score_budget,  0.20),
+        "Trend t.o.v. vorige mnd":(score_trend,   0.10),
+        "Stabiliteit uitgaven":   (score_vol,     0.10),
     }
     avail = {k: v for k, (v, w) in components.items() if not pd.isna(v)}
     if not avail:
@@ -301,6 +312,7 @@ else:
         score_0_1 = sum([components[k][0] * components[k][1] for k in avail.keys()]) / total_weight
         score_100 = int(round(score_0_1 * 100))
 
+        # Labels
         if score_100 >= 80:
             label, tone = "Uitstekend", "success"
         elif score_100 >= 65:
@@ -310,8 +322,9 @@ else:
         else:
             label, tone = "Kwetsbaar", "error"
 
-        fixed_pct_txt = f"{(_safe_div(spend_fixed, abs(inc_m)) * 100):.0f}%" if inc_m else "—"
-        save_pct_txt  = f"{(savings_rate * 100):.0f}%" if not pd.isna(savings_rate) else "—"
+        # Kleine indicatoren
+        fixed_pct_txt = f"{(_safe_div(abs(fixed_m), abs(inc_m)) * 100):.0f}%" if inc_m else "—"
+        save_pct_txt  = f"{(_safe_div(savings_eur, inc_m) * 100):.0f}%" if inc_m else "—"
 
         c1, c2 = st.columns([1, 2])
         with c1:
@@ -351,6 +364,7 @@ else:
             st.warning(f"Status: {label} — let op je kosten/budgetten.")
         else:
             st.error(f"Status: {label} — focus op sparen en vaste lasten.")
+
 
 
 
