@@ -364,6 +364,166 @@ with col2:
 
 
 
+
+# ============================================================
+# 🧪 Wat-als scenario — pas inkomen/uitgaven aan in % of €
+# ============================================================
+st.subheader("🧪 Wat-als scenario")
+
+# Helper functies als ze nog niet bestaan
+try:
+    _clamp
+    _safe_div
+except NameError:
+    def _clamp(x, lo=0.0, hi=1.0):
+        try:
+            return float(min(max(x, lo), hi))
+        except Exception:
+            return np.nan
+    def _safe_div(a, b):
+        return np.nan if (b is None or b == 0 or pd.isna(b)) else a / b
+
+# Basiskeuze: alle data of huidige filter
+basis = st.radio("Bereken op basis van:", ["Alle data", "Huidige filterperiode"], horizontal=True)
+df_base = df if basis == "Alle data" else df_filtered
+
+# Basisbedragen
+cat_b = df_base["categorie"].astype(str).str.strip().str.lower()
+is_loon_b = cat_b.eq("inkomsten loon")
+inc_base = float(df_base[is_loon_b]["bedrag"].sum())
+fixed_base = float(
+    df_base[(df_base["vast/variabel"].astype(str).str.strip().str.title() == "Vast") & (~is_loon_b)]["bedrag"].sum()
+)
+var_base = float(
+    df_base[(df_base["vast/variabel"].astype(str).str.strip().str.title() == "Variabel") & (~is_loon_b)]["bedrag"].sum()
+)
+
+if pd.isna(inc_base) or abs(inc_base) < 1e-6:
+    st.info("ℹ️ Geen (genoeg) inkomen in de gekozen basis om een simulatie te maken.")
+else:
+    # Keuze: aanpassen in % of in €
+    mode = st.radio("Aanpassen in:", ["Procent (%)", "Euro (€)"], horizontal=True)
+
+    if mode == "Procent (%)":
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            inc_delta = st.slider("Inkomen ∆%", -50, 50, 0)
+        with c2:
+            fixed_delta = st.slider("Vaste lasten ∆%", -50, 50, 0)
+        with c3:
+            var_delta = st.slider("Variabele uitgaven ∆%", -50, 50, 0)
+
+        inc_sim   = inc_base   * (1 + inc_delta/100)
+        fixed_sim = fixed_base * (1 + fixed_delta/100)
+        var_sim   = var_base   * (1 + var_delta/100)
+
+    else:  # Euro (€)
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            inc_delta_eur = st.number_input("Inkomen Δ€", value=0.0, step=100.0)
+        with c2:
+            fixed_delta_eur = st.number_input("Vaste lasten Δ€", value=0.0, step=100.0)
+        with c3:
+            var_delta_eur = st.number_input("Variabele uitgaven Δ€", value=0.0, step=100.0)
+
+        inc_sim   = inc_base   + inc_delta_eur
+        fixed_sim = fixed_base + fixed_delta_eur
+        var_sim   = var_base   + var_delta_eur
+
+    # --- Reken rest exact zoals voorheen ---
+    saldo_base = inc_base + fixed_base + var_base
+    sparen_pct_base = _safe_div(saldo_base, inc_base)
+    score_sparen_base = _clamp((sparen_pct_base / 0.2) if not pd.isna(sparen_pct_base) else np.nan, 0, 1)
+    fixed_ratio_base = _safe_div(abs(fixed_base), abs(inc_base))
+    score_vast_base = np.nan if pd.isna(fixed_ratio_base) else (1.0 - _clamp((fixed_ratio_base - 0.5) / 0.5, 0, 1))
+    parts_base = [(score_sparen_base, 0.5)] + ([] if pd.isna(score_vast_base) else [(score_vast_base, 0.5)])
+    den_base = sum(w for _, w in parts_base) or np.nan
+    score_base = int(round((sum(v*w for v, w in parts_base)/den_base) * 100)) if not pd.isna(den_base) else None
+    ratio_base = _safe_div(abs(fixed_base + var_base), abs(inc_base))
+    perc_base = float(ratio_base * 100) if not pd.isna(ratio_base) else None
+
+    saldo_sim = inc_sim + fixed_sim + var_sim
+    sparen_pct_sim = _safe_div(saldo_sim, inc_sim)
+    score_sparen_sim = _clamp((sparen_pct_sim / 0.2) if not pd.isna(sparen_pct_sim) else np.nan, 0, 1)
+    fixed_ratio_sim = _safe_div(abs(fixed_sim), abs(inc_sim))
+    score_vast_sim = np.nan if pd.isna(fixed_ratio_sim) else (1.0 - _clamp((fixed_ratio_sim - 0.5) / 0.5, 0, 1))
+    parts_sim = [(score_sparen_sim, 0.5)] + ([] if pd.isna(score_vast_sim) else [(score_vast_sim, 0.5)])
+    den_sim = sum(w for _, w in parts_sim) or np.nan
+    score_sim = int(round((sum(v*w for v, w in parts_sim)/den_sim) * 100)) if not pd.isna(den_sim) else None
+    ratio_sim = _safe_div(abs(fixed_sim + var_sim), abs(inc_sim))
+    perc_sim = float(ratio_sim * 100) if not pd.isna(ratio_sim) else None
+
+    # --- Meters naast elkaar ---
+    left, right = st.columns(2)
+
+    with left:
+        st.markdown("**Simulatie — financiële gezondheid (simpel)**")
+        if score_sim is not None:
+            fig_sim_score = go.Figure(go.Indicator(
+                mode="gauge+number",
+                value=score_sim,
+                number={'suffix': "/100"},
+                gauge={
+                    'axis': {'range': [0, 100]},
+                    'bar': {'thickness': 0.3},
+                    'steps': [
+                        {'range': [0, 50],  'color': '#fca5a5'},
+                        {'range': [50, 65], 'color': '#fcd34d'},
+                        {'range': [65, 80], 'color': '#a7f3d0'},
+                        {'range': [80, 100],'color': '#86efac'},
+                    ],
+                }
+            ))
+            fig_sim_score.update_layout(height=220, margin=dict(l=10, r=10, t=10, b=10))
+            st.plotly_chart(fig_sim_score, use_container_width=True, key="wa_gauge_score")
+
+            if score_base is not None:
+                st.caption(f"Δ t.o.v. basis: {score_sim - score_base:+.0f} punten")
+
+    with right:
+        st.markdown("**Simulatie — uitgaven / inkomen (%)**")
+        if perc_sim is not None:
+            axis_max = max(120, min(200, (int(perc_sim // 10) + 2) * 10))
+            fig_sim_ratio = go.Figure(go.Indicator(
+                mode="gauge+number",
+                value=perc_sim,
+                number={'suffix': "%"},
+                gauge={
+                    'axis': {'range': [0, axis_max]},
+                    'bar': {'thickness': 0.3},
+                    'steps': [
+                        {'range': [0, 33.33],      'color': '#86efac'},
+                        {'range': [33.33, 100],    'color': '#fcd34d'},
+                        {'range': [100, axis_max], 'color': '#fca5a5'},
+                    ],
+                    'threshold': {
+                        'line': {'color': 'black', 'width': 2},
+                        'thickness': 0.75,
+                        'value': 100
+                    },
+                }
+            ))
+            fig_sim_ratio.update_layout(height=220, margin=dict(l=10, r=10, t=10, b=10))
+            st.plotly_chart(fig_sim_ratio, use_container_width=True, key="wa_gauge_ratio")
+
+            if perc_base is not None:
+                st.caption(f"Δ t.o.v. basis: {perc_sim - perc_base:+.1f} %-pt")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # ============================================================
 # 📊 Financiële metrics (gehele periode)
 # ============================================================
