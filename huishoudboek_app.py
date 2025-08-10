@@ -325,8 +325,8 @@ with st.expander("✏️ Stel budgetten in (per categorie)", expanded=False):
     st.session_state.budget_state = budget_df
 
 # Combineer met werkelijke uitgaven
-budget_join = (
-    .join(uitgaven_mnd.rename("uitgave"), how="outer")
+    budget_join = (
+        .join(uitgaven_mnd.rename("uitgave"), how="outer")
 
     .reset_index()
 )
