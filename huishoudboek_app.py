@@ -164,12 +164,10 @@ variabel_saldo_m = df_variabel_m["bedrag"].sum()
 totaal_saldo_m = inkomen_m + vast_saldo_m + variabel_saldo_m
 
 c1, c2, c3, c4 = st.columns(4)
-c1.metric("📈 Inkomen", euro(inkomen), "—")
-c2.metric("📌 Vaste kosten (aandeel)", euro(vast_saldo), f"{pct(vast_saldo, inkomen, absolute=True)} van inkomen")
-c3.metric("📎 Variabele kosten (aandeel)", euro(variabel_saldo), f"{pct(variabel_saldo, inkomen, absolute=True)} van inkomen")
-c4.metric("💰 Totaal saldo", euro(totaal_saldo), f"{pct(totaal_saldo, inkomen, signed=True)} van inkomen")
-
-
+c1.metric("📈 Inkomen (trend)", euro(inkomen_m), delta=euro(delta_ink))
+c2.metric("📌 Vaste kosten (trend)", euro(vast_saldo_m), delta=euro(delta_vast))
+c3.metric("📎 Variabele kosten (trend)", euro(variabel_saldo_m), delta=euro(delta_var))
+c4.metric("💰 Netto saldo maand (trend)", euro(totaal_saldo_m), delta=euro(delta_net))
 
 
 
@@ -214,10 +212,10 @@ if not df_maand.empty:
     delta_net = totaal_saldo_m - prev_net
 
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("📈 Inkomen (trend)", euro(inkomen_m), delta=euro(delta_ink))
-    c2.metric("📌 Vaste kosten (trend)", euro(vast_saldo_m), delta=euro(delta_vast))
-    c3.metric("📎 Variabele kosten (trend)", euro(variabel_saldo_m), delta=euro(delta_var))
-    c4.metric("💰 Netto saldo maand (trend)", euro(totaal_saldo_m), delta=euro(delta_net))
+    c1.metric("📈 Inkomen", euro(inkomen), "—")
+    c2.metric("📌 Vaste kosten (aandeel)", euro(vast_saldo), f"{pct(vast_saldo, inkomen, absolute=True)} van inkomen")
+    c3.metric("📎 Variabele kosten (aandeel)", euro(variabel_saldo), f"{pct(variabel_saldo, inkomen, absolute=True)} van inkomen")
+    c4.metric("💰 Totaal saldo", euro(totaal_saldo), f"{pct(totaal_saldo, inkomen, signed=True)} van inkomen")
 else:
     st.info("ℹ️ Geen data voor de geselecteerde maand om een trend te tonen.")
 
