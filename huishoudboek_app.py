@@ -193,9 +193,9 @@ else:
 
 
 # ============================================================
-# 📈 Simpele financiële gezondheidsscore (inkomen & uitgaven)
+# 🎯 Gemiddelde simpele financiële gezondheidsscore (alle maanden)
 # ============================================================
-st.subheader("📈 Simpele gezondheidsscore op basis van inkomen & uitgaven")
+st.subheader("🎯 Gemiddelde financiële gezondheid — alle maanden")
 
 def _clamp(x, lo=0.0, hi=1.0):
     try:
@@ -206,28 +206,21 @@ def _clamp(x, lo=0.0, hi=1.0):
 def _safe_div(a, b):
     return np.nan if (b is None or b == 0 or pd.isna(b)) else a / b
 
-scores_simple = []
+scores_all = []
 
-# Groepeer alle data per jaar-maand
 gb = df.groupby(df["datum"].dt.to_period("M"), sort=True)
-
 for ym, df_month in gb:
     if df_month.empty:
         continue
 
-    # Inkomsten = categorie 'inkomsten loon'
     cat = df_month["categorie"].astype(str).str.strip().str.lower()
     is_loon = cat.eq("inkomsten loon")
     inkomen = df_month[is_loon]["bedrag"].sum()
-
-    # Uitgaven = alles behalve inkomsten (negatief in jouw data)
     uitgaven = df_month[~is_loon]["bedrag"].sum()
 
-    # Spaarpercentage
-    saldo = inkomen + uitgaven  # uitgaven negatief → saldo = overschot
-    sparen_pct = _clamp(_safe_div(saldo, inkomen))  # 0..1
+    saldo = inkomen + uitgaven
+    sparen_pct = _clamp(_safe_div(saldo, inkomen))
 
-    # Vaste lasten-ratio (optioneel, alleen als kolom 'vast/variabel' bestaat)
     vaste_ratio = np.nan
     if "vast/variabel" in df_month.columns:
         vaste_lasten = df_month[
@@ -235,45 +228,53 @@ for ym, df_month in gb:
         ]["bedrag"].sum()
         vaste_ratio = _safe_div(abs(vaste_lasten), abs(inkomen) if inkomen != 0 else np.nan)
 
-    # Scorecomponenten
-    # Sparen: 0 bij sparen_pct ≤ 0, 1 bij sparen_pct ≥ 0.2 (20%), lineair ertussen
     score_sparen = _clamp(sparen_pct / 0.2, 0, 1)
-
-    # Vaste lasten: 1 bij ≤50% van inkomen, 0 bij ≥100%, lineair ertussen
     score_vast = np.nan
     if not pd.isna(vaste_ratio):
         score_vast = 1.0 - _clamp((vaste_ratio - 0.5) / 0.5, 0, 1)
 
-    # Eindscore (50/50 weging, automatisch herwogen bij ontbrekende vaste lasten)
     components = {"Sparen": (score_sparen, 0.5), "Vaste lasten": (score_vast, 0.5)}
     avail = {k: v for k, (v, w) in components.items() if not pd.isna(v)}
     if not avail:
         continue
     total_weight = sum([components[k][1] for k in avail.keys()])
     score_0_1 = sum([components[k][0] * components[k][1] for k in avail.keys()]) / total_weight
-    scores_simple.append({"Maand": ym.to_timestamp(), "Score": int(round(score_0_1 * 100))})
+    scores_all.append(score_0_1)
 
-# DataFrame met scores
-df_scores_simple = pd.DataFrame(scores_simple).sort_values("Maand")
+if scores_all:
+    avg_score = int(round((sum(scores_all) / len(scores_all)) * 100))
 
-if not df_scores_simple.empty:
-    fig_simple = px.line(
-        df_scores_simple,
-        x="Maand", y="Score",
-        title="Simpele financiële gezondheid per maand",
-        markers=True,
-        range_y=[0, 100]
-    )
-    fig_simple.add_hrect(y0=80, y1=100, fillcolor="green", opacity=0.1, line_width=0)
-    fig_simple.add_hrect(y0=65, y1=80, fillcolor="lightgreen", opacity=0.1, line_width=0)
-    fig_simple.add_hrect(y0=50, y1=65, fillcolor="yellow", opacity=0.1, line_width=0)
-    fig_simple.add_hrect(y0=0,  y1=50, fillcolor="red", opacity=0.1, line_width=0)
-    st.plotly_chart(fig_simple, use_container_width=True)
+    # Gauge plot
+    fig_avg = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=avg_score,
+        number={'suffix': "/100"},
+        gauge={
+            'axis': {'range': [0, 100]},
+            'bar': {'thickness': 0.3},
+            'steps': [
+                {'range': [0, 50], 'color': '#fca5a5'},
+                {'range': [50, 65], 'color': '#fcd34d'},
+                {'range': [65, 80], 'color': '#a7f3d0'},
+                {'range': [80, 100], 'color': '#86efac'},
+            ],
+        }
+    ))
+    fig_avg.update_layout(height=220, margin=dict(l=10, r=10, t=10, b=10))
+    st.plotly_chart(fig_avg, use_container_width=True)
 
-    with st.expander("📄 Simpele scores per maand"):
-        st.dataframe(df_scores_simple, hide_index=True, use_container_width=True)
+    # Tekststatus
+    if avg_score >= 80:
+        st.success(f"Gemiddelde status: Uitstekend ({avg_score}/100)")
+    elif avg_score >= 65:
+        st.info(f"Gemiddelde status: Gezond ({avg_score}/100)")
+    elif avg_score >= 50:
+        st.warning(f"Gemiddelde status: Aandacht nodig ({avg_score}/100)")
+    else:
+        st.error(f"Gemiddelde status: Kwetsbaar ({avg_score}/100)")
 else:
-    st.info("ℹ️ Onvoldoende data om de simpele score te berekenen.")
+    st.info("ℹ️ Onvoldoende gegevens om een gemiddelde score te berekenen.")
+
 
 
 
