@@ -282,49 +282,54 @@ else:
 
 
 # ============================================================
-# 🎯 Uitgaven t.o.v. inkomen — boogmeter (gefilterde periode)
+# 🎯 Uitgaven t.o.v. inkomen — boogmeter (ALLE data)
 # ============================================================
-st.subheader("🎯 Uitgaven t.o.v. inkomen — boogmeter")
+st.subheader("🎯 Uitgaven t.o.v. inkomen — alle data")
 
-cat = df_filtered["categorie"].astype(str).str.strip().str.lower()
-is_loon = cat.eq("inkomsten loon")
+cat_all = df["categorie"].astype(str).str.strip().str.lower()
+is_loon_all = cat_all.eq("inkomsten loon")
 
-inkomen = df_filtered[is_loon]["bedrag"].sum()
-uitgaven = df_filtered[~is_loon]["bedrag"].sum()  # vaak negatief in de data
+inkomen_all = df[is_loon_all]["bedrag"].sum()
+uitgaven_all = df[~is_loon_all]["bedrag"].sum()  # meestal negatief
 
-if pd.isna(inkomen) or inkomen == 0:
-    st.info("ℹ️ Geen inkomen gevonden in de huidige filterperiode, kan geen percentage berekenen.")
+if pd.isna(inkomen_all) or abs(inkomen_all) == 0:
+    st.info("ℹ️ Geen inkomen gevonden in alle data, kan geen percentage berekenen.")
 else:
-    # ratio in %, op basis van absolute bedragen
-    perc = float(abs(uitgaven) / abs(inkomen) * 100.0)
+    perc_all = float(abs(uitgaven_all) / abs(inkomen_all) * 100.0)
 
-    fig_exp = go.Figure(go.Indicator(
+    # Max van de gauge iets boven de actuele waarde zetten (minstens 120) voor leesbaarheid
+    axis_max = max(120, min(200, (int(perc_all // 10) + 2) * 10))
+
+    fig_exp_all = go.Figure(go.Indicator(
         mode="gauge+number",
-        value=perc,
+        value=perc_all,
         number={'suffix': "%"},
-        title={'text': "Uitgaven / Inkomen (%)"},
+        title={'text': "Uitgaven / Inkomen (%) — alle data"},
         gauge={
-            'axis': {'range': [0, 120]},               # laat ook lichte overschrijding >100% zien
+            'axis': {'range': [0, axis_max]},
             'bar': {'thickness': 0.3},
-            # Kleurzones: groen < 33.33%, geel 33.33–66.67%, rood > 66.67%
+            # Zones: groen < 33.33%, geel 33.33–100%, rood ≥ 100%
             'steps': [
-                {'range': [0, 33.33],  'color': '#86efac'},  # groen
-                {'range': [33.33, 66.67], 'color': '#fcd34d'},  # geel
-                {'range': [66.67, 120],  'color': '#fca5a5'},  # rood
+                {'range': [0, 33.33],         'color': '#86efac'},  # groen
+                {'range': [33.33, 100],       'color': '#fcd34d'},  # geel
+                {'range': [100, axis_max],    'color': '#fca5a5'},  # rood
             ],
-            # Markeer de 1/3-drempel
+            # Markeer kritieke grens 100% extra duidelijk
             'threshold': {
                 'line': {'color': 'black', 'width': 2},
                 'thickness': 0.75,
-                'value': 33.33
+                'value': 100
             },
         }
     ))
-    fig_exp.update_layout(height=220, margin=dict(l=10, r=10, t=10, b=10))
-    st.plotly_chart(fig_exp, use_container_width=True)
+    fig_exp_all.update_layout(height=220, margin=dict(l=10, r=10, t=10, b=10))
+    st.plotly_chart(fig_exp_all, use_container_width=True)
 
-    st.caption(f"Huidige periode: uitgaven zijn {perc:.1f}% van het inkomen. "
-               "Groen als < 33.3%.")
+    st.caption(
+        f"Over alle data: uitgaven zijn {perc_all:.1f}% van het inkomen. "
+        "Groen < 33.3%, geel 33.3–100%, rood ≥ 100%."
+    )
+
 
 
 
