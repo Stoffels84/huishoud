@@ -299,14 +299,26 @@ uitgaven_mnd = (
     .groupby("categorie")["bedrag"].sum().abs().sort_values(ascending=False)
 )
 
+# Alle vaste kosten-categorieën in de hele dataset
+vaste_cats = df[df["vast/variabel"].astype(str).str.strip().str.title() == "Vast"]["categorie"].astype(str).str.strip().str.title().dropna().unique()
+
+# Uitgaven voor vaste kosten in de geselecteerde maand
 uitgaven_mnd = (
     df_filtered[
         (df_filtered["maand_naam"] == geselecteerde_maand) &
         (~df_filtered["categorie"].astype(str).str.lower().eq("inkomsten loon")) &
-        (df_filtered["vast/variabel"] == "Vast")
+        (df_filtered["vast/variabel"].astype(str).str.strip().str.title() == "Vast")
     ]
-    .groupby("categorie")["bedrag"].sum().abs().sort_values(ascending=False)
+    .groupby("categorie")["bedrag"].sum().abs()
 )
+
+# Alle vaste categorieën in DataFrame zetten, ontbrekende op 0
+uitgaven_mnd = (
+    pd.Series(0, index=sorted(vaste_cats))
+    .add(uitgaven_mnd, fill_value=0)
+    .sort_values(ascending=False)
+)
+
 
 cats = list(uitgaven_mnd.index)
 if "budget_state" not in st.session_state:
