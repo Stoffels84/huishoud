@@ -300,7 +300,6 @@ uitgaven_mnd = (
 )
 
 cats = list(uitgaven_mnd.index)
-
 if "budget_state" not in st.session_state:
     st.session_state.budget_state = pd.DataFrame({"categorie": cats, "budget": np.nan})
 
@@ -325,9 +324,8 @@ with st.expander("✏️ Stel budgetten in (per categorie)", expanded=False):
     st.session_state.budget_state = budget_df
 
 # Combineer met werkelijke uitgaven
-    budget_join = (
-        .join(uitgaven_mnd.rename("uitgave"), how="outer")
-
+budget_join = (
+    budget_df.set_index("categorie").join(uitgaven_mnd.rename("uitgave"), how="outer")
     .reset_index()
 )
 budget_join["budget"] = pd.to_numeric(budget_join["budget"], errors="coerce")
@@ -771,7 +769,7 @@ uitgaven_mnd = (
     .groupby("categorie")["bedrag"].sum().abs().sort_values(ascending=False)
 )
 
-cats = list(u itgaven_mnd.index)
+cats = list(uitgaven_mnd.index)
 if "budget_state" not in st.session_state:
     st.session_state.budget_state = pd.DataFrame({"categorie": cats, "budget": np.nan})
 
@@ -797,7 +795,7 @@ with st.expander("✏️ Stel budgetten in (per categorie)", expanded=False):
 
 # Combineer met werkelijke uitgaven
 budget_join = (
-    budget_df.set_index("categorie").join(u itgaven_mnd.rename("uitgave"), how="outer")
+    budget_df.set_index("categorie").join(uitgaven_mnd.rename("uitgave"), how="outer")
     .reset_index()
 )
 budget_join["budget"] = pd.to_numeric(budget_join["budget"], errors="coerce")
