@@ -136,25 +136,15 @@ with st.sidebar:
     )
 
 # ============================================================
-# 📅 Maand-metrics (saldo)
+# 📅 Maand-metrics (saldo) — EERST
 # ============================================================
 st.subheader(f"📆 Overzicht voor {geselecteerde_maand}")
 df_maand = df_filtered[df_filtered["maand_naam"] == geselecteerde_maand].copy()
 
-is_loon_all = df_filtered["categorie"].astype(str).str.strip().str.lower().eq("inkomsten loon")
-df_loon = df_filtered[is_loon_all]
-df_vast = df_filtered[df_filtered["vast/variabel"] == "Vast"]
-df_variabel = df_filtered[df_filtered["vast/variabel"] == "Variabel"]
-
-inkomen = df_loon["bedrag"].sum()
-vast_saldo = df_vast["bedrag"].sum()
-variabel_saldo = df_variabel["bedrag"].sum()
-totaal_saldo = inkomen + vast_saldo + variabel_saldo
-# ============================================================
-# 📊 Financiële metrics (gehele periode)
-# ============================================================
-is_loon = df_maand["categorie"].astype(str).str.strip().str.lower().eq("inkomsten loon")
-df_loon_m = df_maand[is_loon]
+is_loon_m = df_maand["categorie"].astype(str).str.strip().str.lower().isin(
+    {"inkomsten loon","inkomsten","loon","salaris","bonus","teruggave","rente"}
+)
+df_loon_m = df_maand[is_loon_m]
 df_vast_m = df_maand[df_maand["vast/variabel"] == "Vast"]
 df_variabel_m = df_maand[df_maand["vast/variabel"] == "Variabel"]
 
@@ -163,61 +153,84 @@ vast_saldo_m = df_vast_m["bedrag"].sum()
 variabel_saldo_m = df_variabel_m["bedrag"].sum()
 totaal_saldo_m = inkomen_m + vast_saldo_m + variabel_saldo_m
 
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("📈 Inkomen (trend)", euro(inkomen_m), delta=euro(delta_ink))
-    c2.metric("📌 Vaste kosten (trend)", euro(vast_saldo_m), delta=euro(delta_vast))
-    c3.metric("📎 Variabele kosten (trend)", euro(variabel_saldo_m), delta=euro(delta_var))
-    c4.metric("💰 Netto saldo maand (trend)", euro(totaal_saldo_m), delta=euro(delta_net))
-
-
+mc1, mc2, mc3, mc4 = st.columns(4)
+mc1.metric("📈 Inkomen (maand)", euro(inkomen_m), "—")
+mc2.metric("📌 Vaste kosten (maand)", euro(vast_saldo_m), f"{pct(vast_saldo_m, inkomen_m, absolute=True)} van inkomen")
+mc3.metric("📎 Variabele kosten (maand)", euro(variabel_saldo_m), f"{pct(variabel_saldo_m, inkomen_m, absolute=True)} van inkomen")
+mc4.metric("💰 Netto saldo (maand)", euro(totaal_saldo_m), f"{pct(totaal_saldo_m, inkomen_m, signed=True)} van inkomen")
 
 # ============================================================
-# 🔁 Trend t.o.v. vorige maand (delta in st.metric)
+# 🔁 Trend t.o.v. vorige maand
 # ============================================================
 st.caption("Trend t.o.v. vorige maand")
 
 if not df_maand.empty:
-    # Laatste datum in de geselecteerde maand
+    # referentiedatum in gekozen maand
     ref = df_maand["datum"].max()
 
-    # Vorige maand bepalen (met jaarwisseling)
+    # vorige maand (incl. jaarwissel)
     prev_year, prev_month = (ref.year - 1, 12) if ref.month == 1 else (ref.year, ref.month - 1)
 
-    # Dataframe van de vorige maand binnen de huidige filterrange
+    # data vorige maand binnen huidige filter
     prev_mask = (df_filtered["datum"].dt.year == prev_year) & (df_filtered["datum"].dt.month == prev_month)
     df_prev = df_filtered[prev_mask].copy()
 
-    # Helper om totals te pakken (zelfde logica als je KPI's)
     def total_of(dfin, *, cat=None, vv=None):
         d = dfin.copy()
         cat_col = d["categorie"].astype(str).str.strip().str.lower()
+        income_mask = cat_col.isin({"inkomsten loon","inkomsten","loon","salaris","bonus","teruggave","rente"})
         if cat == "inkomsten":
-            d = d[cat_col.eq("inkomsten loon")]
+            d = d[income_mask]
         elif cat == "uitgaven":
-            d = d[~cat_col.eq("inkomsten loon")]
+            d = d[~income_mask]
         if vv is not None:
             d = d[d["vast/variabel"].astype(str).str.strip().str.title().eq(vv)]
         return d["bedrag"].sum()
 
-    # Waarden vorige maand
-    prev_ink = total_of(df_prev, cat="inkomsten")
-    prev_vast = total_of(df_prev, vv="Vast")
-    prev_var  = total_of(df_prev, vv="Variabel")
-    prev_net  = prev_ink + prev_vast + prev_var
+    if df_prev.empty:
+        prev_ink = prev_vast = prev_var = prev_net = 0.0
+    else:
+        prev_ink = total_of(df_prev, cat="inkomsten")
+        prev_vast = total_of(df_prev, vv="Vast")
+        prev_var  = total_of(df_prev, vv="Variabel")
+        prev_net  = prev_ink + prev_vast + prev_var
 
-    # Deltas (huidig - vorige maand)
+    # deltas
     delta_ink = inkomen_m - prev_ink
     delta_vast = vast_saldo_m - prev_vast
     delta_var = variabel_saldo_m - prev_var
     delta_net = totaal_saldo_m - prev_net
 
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("📈 Inkomen", euro(inkomen), "—")
-    c2.metric("📌 Vaste kosten (aandeel)", euro(vast_saldo), f"{pct(vast_saldo, inkomen, absolute=True)} van inkomen")
-    c3.metric("📎 Variabele kosten (aandeel)", euro(variabel_saldo), f"{pct(variabel_saldo, inkomen, absolute=True)} van inkomen")
-    c4.metric("💰 Totaal saldo", euro(totaal_saldo), f"{pct(totaal_saldo, inkomen, signed=True)} van inkomen")
+    tc1, tc2, tc3, tc4 = st.columns(4)
+    tc1.metric("📈 Inkomen (trend)", euro(inkomen_m), delta=euro(delta_ink))
+    tc2.metric("📌 Vaste kosten (trend)", euro(vast_saldo_m), delta=euro(delta_vast))
+    tc3.metric("📎 Variabele kosten (trend)", euro(variabel_saldo_m), delta=euro(delta_var))
+    tc4.metric("💰 Netto saldo maand (trend)", euro(totaal_saldo_m), delta=euro(delta_net))
 else:
     st.info("ℹ️ Geen data voor de geselecteerde maand om een trend te tonen.")
+
+# ============================================================
+# 📊 Financiële metrics (GEHELE PERIODE) — DAARNA
+# ============================================================
+st.subheader("📅 Overzicht voor geselecteerde periode")
+
+cat_all = df_filtered["categorie"].astype(str).str.strip().str.lower()
+is_loon_all = cat_all.isin({"inkomsten loon","inkomsten","loon","salaris","bonus","teruggave","rente"})
+df_loon = df_filtered[is_loon_all]
+df_vast = df_filtered[df_filtered["vast/variabel"] == "Vast"]
+df_variabel = df_filtered[df_filtered["vast/variabel"] == "Variabel"]
+
+inkomen = df_loon["bedrag"].sum()
+vast_saldo = df_vast["bedrag"].sum()
+variabel_saldo = df_variabel["bedrag"].sum()
+totaal_saldo = inkomen + vast_saldo + variabel_saldo
+
+pc1, pc2, pc3, pc4 = st.columns(4)
+pc1.metric("📈 Inkomen (periode)", euro(inkomen), "—")
+pc2.metric("📌 Vaste kosten (aandeel)", euro(vast_saldo), f"{pct(vast_saldo, inkomen, absolute=True)} van inkomen")
+pc3.metric("📎 Variabele kosten (aandeel)", euro(variabel_saldo), f"{pct(variabel_saldo, inkomen, absolute=True)} van inkomen")
+pc4.metric("💰 Totaal saldo (periode)", euro(totaal_saldo), f"{pct(totaal_saldo, inkomen, signed=True)} van inkomen")
+
 
 
 # ============================================================
