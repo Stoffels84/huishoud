@@ -146,6 +146,62 @@ c2.metric("📌 Vaste kosten (aandeel)", euro(vast_saldo_m), f"{pct(vast_saldo_m
 c3.metric("📎 Variabele kosten (aandeel)", euro(variabel_saldo_m), f"{pct(variabel_saldo_m, inkomen_m, absolute=True)} van inkomen")
 c4.metric("💰 Netto saldo maand", euro(totaal_saldo_m), f"{pct(totaal_saldo_m, inkomen_m, signed=True)} van inkomen")
 
+
+
+# ============================================================
+# 🔁 Trend t.o.v. vorige maand (delta in st.metric)
+# ============================================================
+st.caption("Trend t.o.v. vorige maand")
+
+if not df_maand.empty:
+    # Laatste datum in de geselecteerde maand
+    ref = df_maand["datum"].max()
+
+    # Vorige maand bepalen (met jaarwisseling)
+    prev_year, prev_month = (ref.year - 1, 12) if ref.month == 1 else (ref.year, ref.month - 1)
+
+    # Dataframe van de vorige maand binnen de huidige filterrange
+    prev_mask = (df_filtered["datum"].dt.year == prev_year) & (df_filtered["datum"].dt.month == prev_month)
+    df_prev = df_filtered[prev_mask].copy()
+
+    # Helper om totals te pakken (zelfde logica als je KPI's)
+    def total_of(dfin, *, cat=None, vv=None):
+        d = dfin.copy()
+        cat_col = d["categorie"].astype(str).str.strip().str.lower()
+        if cat == "inkomsten":
+            d = d[cat_col.eq("inkomsten loon")]
+        elif cat == "uitgaven":
+            d = d[~cat_col.eq("inkomsten loon")]
+        if vv is not None:
+            d = d[d["vast/variabel"].astype(str).str.strip().str.title().eq(vv)]
+        return d["bedrag"].sum()
+
+    # Waarden vorige maand
+    prev_ink = total_of(df_prev, cat="inkomsten")
+    prev_vast = total_of(df_prev, vv="Vast")
+    prev_var  = total_of(df_prev, vv="Variabel")
+    prev_net  = prev_ink + prev_vast + prev_var
+
+    # Deltas (huidig - vorige maand)
+    delta_ink = inkomen_m - prev_ink
+    delta_vast = vast_saldo_m - prev_vast
+    delta_var = variabel_saldo_m - prev_var
+    delta_net = totaal_saldo_m - prev_net
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("📈 Inkomen (trend)", euro(inkomen_m), delta=euro(delta_ink))
+    c2.metric("📌 Vaste kosten (trend)", euro(vast_saldo_m), delta=euro(delta_vast))
+    c3.metric("📎 Variabele kosten (trend)", euro(variabel_saldo_m), delta=euro(delta_var))
+    c4.metric("💰 Netto saldo maand (trend)", euro(totaal_saldo_m), delta=euro(delta_net))
+else:
+    st.info("ℹ️ Geen data voor de geselecteerde maand om een trend te tonen.")
+
+
+
+
+
+
+
 # ============================================================
 # 📊 Financiële metrics (gehele periode)
 # ============================================================
