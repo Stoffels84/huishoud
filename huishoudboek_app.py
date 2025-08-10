@@ -153,11 +153,6 @@ vast_saldo_m = df_vast_m["bedrag"].sum()
 variabel_saldo_m = df_variabel_m["bedrag"].sum()
 totaal_saldo_m = inkomen_m + vast_saldo_m + variabel_saldo_m
 
-mc1, mc2, mc3, mc4 = st.columns(4)
-mc1.metric("📈 Inkomen (maand)", euro(inkomen_m), "—")
-mc2.metric("📌 Vaste kosten (maand)", euro(vast_saldo_m), f"{pct(vast_saldo_m, inkomen_m, absolute=True)} van inkomen")
-mc3.metric("📎 Variabele kosten (maand)", euro(variabel_saldo_m), f"{pct(variabel_saldo_m, inkomen_m, absolute=True)} van inkomen")
-mc4.metric("💰 Netto saldo (maand)", euro(totaal_saldo_m), f"{pct(totaal_saldo_m, inkomen_m, signed=True)} van inkomen")
 
 # ============================================================
 # 🔁 Trend t.o.v. vorige maand
