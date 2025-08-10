@@ -193,8 +193,9 @@ else:
 
 
 # ============================================================
-# 📊 Gemiddelde score + Uitgaven/inkomen meter — naast elkaar (met uitleg)
+# 🎯 Gemiddelde simpele financiële gezondheidsscore (alle maanden)
 # ============================================================
+st.subheader("🎯 Gemiddelde financiële gezondheid — alle maanden")
 
 def _clamp(x, lo=0.0, hi=1.0):
     try:
@@ -205,156 +206,74 @@ def _clamp(x, lo=0.0, hi=1.0):
 def _safe_div(a, b):
     return np.nan if (b is None or b == 0 or pd.isna(b)) else a / b
 
-# ---------- Bereken GEMIDDELDE SIMPELE SCORE (alle maanden) ----------
-avg_score = None
-fig_avg = None
-avg_spaar_pct = np.nan
-avg_vaste_pct = np.nan
+scores_all = []
 
-try:
-    scores_all = []
-    spaar_pct_list = []
-    vaste_pct_list = []
+gb = df.groupby(df["datum"].dt.to_period("M"), sort=True)
+for ym, df_month in gb:
+    if df_month.empty:
+        continue
 
-    gb = df.groupby(df["datum"].dt.to_period("M"), sort=True)
+    cat = df_month["categorie"].astype(str).str.strip().str.lower()
+    is_loon = cat.eq("inkomsten loon")
+    inkomen = df_month[is_loon]["bedrag"].sum()
+    uitgaven = df_month[~is_loon]["bedrag"].sum()
 
-    for ym, df_month in gb:
-        if df_month.empty:
-            continue
+    saldo = inkomen + uitgaven
+    sparen_pct = _clamp(_safe_div(saldo, inkomen))
 
-        cat = df_month["categorie"].astype(str).str.strip().str.lower()
-        is_loon = cat.eq("inkomsten loon")
-        inkomen = df_month[is_loon]["bedrag"].sum()
-        uitgaven = df_month[~is_loon]["bedrag"].sum()  # meestal negatief
+    vaste_ratio = np.nan
+    if "vast/variabel" in df_month.columns:
+        vaste_lasten = df_month[
+            (df_month["vast/variabel"].astype(str).str.strip().str.title() == "Vast") & ~is_loon
+        ]["bedrag"].sum()
+        vaste_ratio = _safe_div(abs(vaste_lasten), abs(inkomen) if inkomen != 0 else np.nan)
 
-        saldo = inkomen + uitgaven
-        sparen_pct = _safe_div(saldo, inkomen)  # 0..1 (kan NaN worden)
-        spaar_pct_list.append(sparen_pct * 100 if not pd.isna(sparen_pct) else np.nan)
+    score_sparen = _clamp(sparen_pct / 0.2, 0, 1)
+    score_vast = np.nan
+    if not pd.isna(vaste_ratio):
+        score_vast = 1.0 - _clamp((vaste_ratio - 0.5) / 0.5, 0, 1)
 
-        vaste_ratio = np.nan
-        if "vast/variabel" in df_month.columns:
-            vaste_lasten = df_month[
-                (df_month["vast/variabel"].astype(str).str.strip().str.title() == "Vast") & (~is_loon)
-            ]["bedrag"].sum()
-            vaste_ratio = _safe_div(abs(vaste_lasten), abs(inkomen) if inkomen != 0 else np.nan)
-        vaste_pct_list.append(vaste_ratio * 100 if not pd.isna(vaste_ratio) else np.nan)
+    components = {"Sparen": (score_sparen, 0.5), "Vaste lasten": (score_vast, 0.5)}
+    avail = {k: v for k, (v, w) in components.items() if not pd.isna(v)}
+    if not avail:
+        continue
+    total_weight = sum([components[k][1] for k in avail.keys()])
+    score_0_1 = sum([components[k][0] * components[k][1] for k in avail.keys()]) / total_weight
+    scores_all.append(score_0_1)
 
-        # Component-scores
-        score_sparen = _clamp(sparen_pct / 0.2 if not pd.isna(sparen_pct) else np.nan, 0, 1)
-        score_vast = np.nan if pd.isna(vaste_ratio) else (1.0 - _clamp((vaste_ratio - 0.5) / 0.5, 0, 1))
+if scores_all:
+    avg_score = int(round((sum(scores_all) / len(scores_all)) * 100))
 
-        components = {"Sparen": (score_sparen, 0.5), "Vaste lasten": (score_vast, 0.5)}
-        avail = {k: v for k, (v, w) in components.items() if not pd.isna(v)}
-        if not avail:
-            continue
-        total_weight = sum([components[k][1] for k in avail.keys()])
-        score_0_1 = sum([components[k][0] * components[k][1] for k in avail.keys()]) / total_weight
-        scores_all.append(score_0_1)
+    # Gauge plot
+    fig_avg = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=avg_score,
+        number={'suffix': "/100"},
+        gauge={
+            'axis': {'range': [0, 100]},
+            'bar': {'thickness': 0.3},
+            'steps': [
+                {'range': [0, 50], 'color': '#fca5a5'},
+                {'range': [50, 65], 'color': '#fcd34d'},
+                {'range': [65, 80], 'color': '#a7f3d0'},
+                {'range': [80, 100], 'color': '#86efac'},
+            ],
+        }
+    ))
+    fig_avg.update_layout(height=220, margin=dict(l=10, r=10, t=10, b=10))
+    st.plotly_chart(fig_avg, use_container_width=True)
 
-    if scores_all:
-        avg_score = int(round((sum(scores_all) / len(scores_all)) * 100))
-        # Gemiddelden voor uitleg
-        if any(not pd.isna(x) for x in spaar_pct_list):
-            avg_spaar_pct = float(np.nanmean(spaar_pct_list))
-        if any(not pd.isna(x) for x in vaste_pct_list):
-            avg_vaste_pct = float(np.nanmean(vaste_pct_list))
-
-        # Gauge
-        fig_avg = go.Figure(go.Indicator(
-            mode="gauge+number",
-            value=avg_score,
-            number={'suffix': "/100"},
-            gauge={
-                'axis': {'range': [0, 100]},
-                'bar': {'thickness': 0.3},
-                'steps': [
-                    {'range': [0, 50],  'color': '#fca5a5'},
-                    {'range': [50, 65], 'color': '#fcd34d'},
-                    {'range': [65, 80], 'color': '#a7f3d0'},
-                    {'range': [80, 100],'color': '#86efac'},
-                ],
-            }
-        ))
-        fig_avg.update_layout(height=220, margin=dict(l=10, r=10, t=10, b=10))
-except Exception:
-    avg_score = None
-    fig_avg = None
-
-# ---------- Bereken UITGAVEN / INKOMEN (%) (alle data) ----------
-perc_all = None
-fig_exp_all = None
-
-try:
-    cat_all = df["categorie"].astype(str).str.strip().str.lower()
-    is_loon_all = cat_all.eq("inkomsten loon")
-
-    inkomen_all = df[is_loon_all]["bedrag"].sum()
-    uitgaven_all = df[~is_loon_all]["bedrag"].sum()  # meestal negatief
-
-    if not pd.isna(inkomen_all) and abs(inkomen_all) != 0:
-        perc_all = float(abs(uitgaven_all) / abs(inkomen_all) * 100.0)
-        axis_max = max(120, min(200, (int(perc_all // 10) + 2) * 10))
-        fig_exp_all = go.Figure(go.Indicator(
-            mode="gauge+number",
-            value=perc_all,
-            number={'suffix': "%"},
-            gauge={
-                'axis': {'range': [0, axis_max]},
-                'bar': {'thickness': 0.3},
-                'steps': [
-                    {'range': [0, 33.33],      'color': '#86efac'},  # groen
-                    {'range': [33.33, 100],    'color': '#fcd34d'},  # geel
-                    {'range': [100, axis_max], 'color': '#fca5a5'},  # rood
-                ],
-                'threshold': {
-                    'line': {'color': 'black', 'width': 2},
-                    'thickness': 0.75,
-                    'value': 100
-                },
-            }
-        ))
-        fig_exp_all.update_layout(height=220, margin=dict(l=10, r=10, t=10, b=10))
-except Exception:
-    perc_all = None
-    fig_exp_all = None
-
-# ---------- Toon NAAST ELKAAR ----------
-col1, col2 = st.columns(2)
-
-with col1:
-    st.subheader("🎯 Gemiddelde financiële gezondheid — alle maanden")
-    if fig_avg is not None:
-        st.plotly_chart(fig_avg, use_container_width=True)
-
-        # Uitlegregel onder de meter
-        uitleg_parts = []
-        if not pd.isna(avg_spaar_pct):
-            uitleg_parts.append(f"gemiddeld spaarpercentage: {avg_spaar_pct:.1f}%")
-        if not pd.isna(avg_vaste_pct):
-            uitleg_parts.append(f"gemiddeld aandeel vaste lasten: {avg_vaste_pct:.1f}% van inkomen")
-        uitleg_txt = " — ".join(uitleg_parts) if uitleg_parts else "onvoldoende gegevens voor detailuitleg."
-
-        if avg_score >= 80:
-            st.success(f"Uitstekend ({avg_score}/100) — {uitleg_txt}")
-        elif avg_score >= 65:
-            st.info(f"Gezond ({avg_score}/100) — {uitleg_txt}")
-        elif avg_score >= 50:
-            st.warning(f"Aandacht nodig ({avg_score}/100) — {uitleg_txt}")
-        else:
-            st.error(f"Kwetsbaar ({avg_score}/100) — {uitleg_txt}")
+    # Tekststatus
+    if avg_score >= 80:
+        st.success(f"Gemiddelde status: Uitstekend ({avg_score}/100)")
+    elif avg_score >= 65:
+        st.info(f"Gemiddelde status: Gezond ({avg_score}/100)")
+    elif avg_score >= 50:
+        st.warning(f"Gemiddelde status: Aandacht nodig ({avg_score}/100)")
     else:
-        st.info("ℹ️ Geen voldoende gegevens voor de gemiddelde score.")
-
-with col2:
-    st.subheader("🎯 Uitgaven t.o.v. inkomen — alle data")
-    if fig_exp_all is not None:
-        st.plotly_chart(fig_exp_all, use_container_width=True)
-        st.caption(
-            f"Uitgaven zijn {perc_all:.1f}% van het inkomen. "
-            "Groen < 33.3%, geel 33.3–100%, rood ≥ 100%."
-        )
-    else:
-        st.info("ℹ️ Geen inkomen gevonden in alle data, kan geen percentage tonen.")
+        st.error(f"Gemiddelde status: Kwetsbaar ({avg_score}/100)")
+else:
+    st.info("ℹ️ Onvoldoende gegevens om een gemiddelde score te berekenen.")
 
 
 
@@ -362,7 +281,54 @@ with col2:
 
 
 
+# ============================================================
+# 🎯 Uitgaven t.o.v. inkomen — boogmeter (ALLE data)
+# ============================================================
+st.subheader("🎯 Uitgaven t.o.v. inkomen — alle data")
 
+cat_all = df["categorie"].astype(str).str.strip().str.lower()
+is_loon_all = cat_all.eq("inkomsten loon")
+
+inkomen_all = df[is_loon_all]["bedrag"].sum()
+uitgaven_all = df[~is_loon_all]["bedrag"].sum()  # meestal negatief
+
+if pd.isna(inkomen_all) or abs(inkomen_all) == 0:
+    st.info("ℹ️ Geen inkomen gevonden in alle data, kan geen percentage berekenen.")
+else:
+    perc_all = float(abs(uitgaven_all) / abs(inkomen_all) * 100.0)
+
+    # Max van de gauge iets boven de actuele waarde zetten (minstens 120) voor leesbaarheid
+    axis_max = max(120, min(200, (int(perc_all // 10) + 2) * 10))
+
+    fig_exp_all = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=perc_all,
+        number={'suffix': "%"},
+        title={'text': "Uitgaven / Inkomen (%) — alle data"},
+        gauge={
+            'axis': {'range': [0, axis_max]},
+            'bar': {'thickness': 0.3},
+            # Zones: groen < 33.33%, geel 33.33–100%, rood ≥ 100%
+            'steps': [
+                {'range': [0, 33.33],         'color': '#86efac'},  # groen
+                {'range': [33.33, 100],       'color': '#fcd34d'},  # geel
+                {'range': [100, axis_max],    'color': '#fca5a5'},  # rood
+            ],
+            # Markeer kritieke grens 100% extra duidelijk
+            'threshold': {
+                'line': {'color': 'black', 'width': 2},
+                'thickness': 0.75,
+                'value': 100
+            },
+        }
+    ))
+    fig_exp_all.update_layout(height=220, margin=dict(l=10, r=10, t=10, b=10))
+    st.plotly_chart(fig_exp_all, use_container_width=True)
+
+    st.caption(
+        f"Over alle data: uitgaven zijn {perc_all:.1f}% van het inkomen. "
+        "Groen < 33.3%, geel 33.3–100%, rood ≥ 100%."
+    )
 
 
 
