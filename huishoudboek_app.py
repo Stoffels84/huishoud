@@ -141,10 +141,10 @@ with st.sidebar:
 st.subheader(f"📆 Overzicht voor {geselecteerde_maand}")
 df_maand = df_filtered[df_filtered["maand_naam"] == geselecteerde_maand].copy()
 
-is_loon = df_maand["categorie"].astype(str).str.strip().str.lower().eq("inkomsten loon")
-df_loon_m = df_maand[is_loon]
-df_vast_m = df_maand[df_maand["vast/variabel"] == "Vast"]
-df_variabel_m = df_maand[df_maand["vast/variabel"] == "Variabel"]
+is_loon_all = df_filtered["categorie"].astype(str).str.strip().str.lower().eq("inkomsten loon")
+df_loon = df_filtered[is_loon_all]
+df_vast = df_filtered[df_filtered["vast/variabel"] == "Vast"]
+df_variabel = df_filtered[df_filtered["vast/variabel"] == "Variabel"]
 
 inkomen_m = df_loon_m["bedrag"].sum()
 vast_saldo_m = df_vast_m["bedrag"].sum()
@@ -154,10 +154,10 @@ totaal_saldo_m = inkomen_m + vast_saldo_m + variabel_saldo_m
 # ============================================================
 # 📊 Financiële metrics (gehele periode)
 # ============================================================
-is_loon_all = df_filtered["categorie"].astype(str).str.strip().str.lower().eq("inkomsten loon")
-df_loon = df_filtered[is_loon_all]
-df_vast = df_filtered[df_filtered["vast/variabel"] == "Vast"]
-df_variabel = df_filtered[df_filtered["vast/variabel"] == "Variabel"]
+is_loon = df_maand["categorie"].astype(str).str.strip().str.lower().eq("inkomsten loon")
+df_loon_m = df_maand[is_loon]
+df_vast_m = df_maand[df_maand["vast/variabel"] == "Vast"]
+df_variabel_m = df_maand[df_maand["vast/variabel"] == "Variabel"]
 
 inkomen = df_loon["bedrag"].sum()
 vast_saldo = df_vast["bedrag"].sum()
