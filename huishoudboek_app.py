@@ -196,91 +196,52 @@ else:
 # 🧭 Financiële gezondheidscore (0–100) voor de geselecteerde maand
 # ============================================================
 # ============================================================
-# 🧭 Financiële gezondheidsscore (0–100) — SALDO + SALDO-volatiliteit
+# 📈 Gezondheidsscore voor alle maanden (tijdlijn)
 # ============================================================
-st.subheader(f"🧭 Financiële gezondheidsscore — {geselecteerde_maand}")
+st.subheader("📈 Financiële gezondheid door de tijd")
 
-def _clamp(x, lo=0.0, hi=1.0):
-    try:
-        return float(min(max(x, lo), hi))
-    except Exception:
-        return np.nan
+scores_per_month = []
 
-def _safe_div(a, b):
-    return np.nan if (b is None or b == 0 or pd.isna(b)) else a / b
+# Groeperen op jaar-maand
+for ym, df_month in df.groupby(df["datum"].dt.to_period("M")):
+    if df_month.empty:
+        continue
 
-if df_maand.empty:
-    st.info("ℹ️ Geen data voor de geselecteerde maand om een score te berekenen.")
-else:
-    # --- Basis (saldo)
-    is_loon_m = df_maand["categorie"].astype(str).str.strip().str.lower().eq("inkomsten loon")
-    inc_m = df_maand[is_loon_m]["bedrag"].sum()  # positief
-    fixed_m = df_maand[
-        (df_maand["vast/variabel"].astype(str).str.strip().str.title() == "Vast") & ~is_loon_m
-    ]["bedrag"].sum()  # meestal negatief
-    var_m = df_maand[
-        (df_maand["vast/variabel"].astype(str).str.strip().str.title() == "Variabel") & ~is_loon_m
-    ]["bedrag"].sum()  # meestal negatief
+    # Zelfde basisberekening als in saldo-score
+    is_loon = df_month["categorie"].astype(str).str.strip().str.lower().eq("inkomsten loon")
+    inc = df_month[is_loon]["bedrag"].sum()
+    fixed = df_month[
+        (df_month["vast/variabel"].astype(str).str.strip().str.title() == "Vast") & ~is_loon
+    ]["bedrag"].sum()
+    var = df_month[
+        (df_month["vast/variabel"].astype(str).str.strip().str.title() == "Variabel") & ~is_loon
+    ]["bedrag"].sum()
 
-    saldo_maand = inc_m + fixed_m + var_m
-
-    # Spaarcomponent
-    savings_eur = saldo_maand
-    savings_rate = _clamp(_safe_div(savings_eur, inc_m))
-
-    # Vaste-kosten aandeel
-    fixed_ratio = _safe_div(abs(fixed_m), abs(inc_m) if inc_m != 0 else np.nan)
+    saldo = inc + fixed + var
+    savings_rate = _clamp(_safe_div(saldo, inc))
+    fixed_ratio = _safe_div(abs(fixed), abs(inc) if inc != 0 else np.nan)
     score_fixed = 1.0 if pd.isna(fixed_ratio) else (1.0 - _clamp((fixed_ratio - 0.5) / 0.5, 0, 1))
 
-    # Budget-overschrijding
+    # Budget-score kan hier niet uit session_state komen → overslaan of NaN
     score_budget = np.nan
-    try:
-        if "budget_state" in st.session_state and not st.session_state.budget_state.empty:
-            bj = st.session_state.budget_state.copy()
-            bj["budget"] = pd.to_numeric(bj["budget"], errors="coerce")
-            bj = bj.dropna(subset=["budget"])
-            if not bj.empty:
-                uitgaven_mnd_ser = (
-                    df_filtered[
-                        (df_filtered["maand_naam"] == geselecteerde_maand) &
-                        (~df_filtered["categorie"].astype(str).str.lower().eq("inkomsten loon")) &
-                        (df_filtered["vast/variabel"].astype(str).str.strip().str.title() == "Vast")
-                    ]
-                    .groupby("categorie")["bedrag"].sum().abs()
-                )
-                bj = bj.set_index("categorie")
-                bj["uitgave"] = uitgaven_mnd_ser
-                total_budget = float(bj["budget"].sum())
-                over_budget  = float((bj["uitgave"].fillna(0) - bj["budget"]).clip(lower=0).sum())
-                if total_budget > 0:
-                    score_budget = 1.0 - _clamp(_safe_div(over_budget, total_budget), 0, 1)
-    except Exception:
-        score_budget = np.nan
 
-    # Trend t.o.v. vorige maand (saldo)
-    ref = df_maand["datum"].max()
-    prev_year, prev_month = (ref.year - 1, 12) if ref.month == 1 else (ref.year, ref.month - 1)
-    prev_mask = (df_filtered["datum"].dt.year == prev_year) & (df_filtered["datum"].dt.month == prev_month)
-    df_prev = df_filtered[prev_mask].copy()
-
-    def _net_saldo(dfin):
-        cat = dfin["categorie"].astype(str).str.strip().str.lower()
-        inc = dfin[cat.eq("inkomsten loon")]["bedrag"].sum()
-        fx  = dfin[(dfin["vast/variabel"].astype(str).str.strip().str.title() == "Vast") & ~cat.eq("inkomsten loon")]["bedrag"].sum()
-        vr  = dfin[(dfin["vast/variabel"].astype(str).str.strip().str.title() == "Variabel") & ~cat.eq("inkomsten loon")]["bedrag"].sum()
-        return inc + fx + vr
-
-    net_curr = saldo_maand
-    net_prev = _net_saldo(df_prev) if not df_prev.empty else np.nan
-    denom_trend = max(abs(net_prev) if not pd.isna(net_prev) else 0, abs(inc_m), 1.0)
+    # Trend t.o.v. vorige maand
+    prev_ym = ym - 1  # werkt op Period('YYYY-MM', 'M')
+    if prev_ym in df.groupby(df["datum"].dt.to_period("M")).groups:
+        df_prev = df.groupby(df["datum"].dt.to_period("M")).get_group(prev_ym)
+        net_prev = df_prev["bedrag"].sum()
+    else:
+        net_prev = np.nan
+    net_curr = saldo
+    denom_trend = max(abs(net_prev) if not pd.isna(net_prev) else 0, abs(inc), 1.0)
     delta_net = net_curr - (net_prev if not pd.isna(net_prev) else 0.0)
     score_trend = _clamp(0.5 + 0.5 * (delta_net / denom_trend))
 
-    # Stabiliteit op SALDO-basis (laatste 6 maanden)
+    # Stabiliteit op saldo-basis (laatste 6 maanden tot deze maand)
     hist_saldo = (
-        df_filtered
-        .assign(ym=df_filtered["datum"].dt.to_period("M"))
-        .groupby("ym")["bedrag"].sum()  # saldo, tekens behouden
+        df[df["datum"] <= df_month["datum"].max()]
+        .assign(ym=df["datum"].dt.to_period("M"))
+        .groupby("ym")["bedrag"].sum()
         .sort_index()
     )
     last6 = hist_saldo.tail(6)
@@ -290,72 +251,47 @@ else:
     else:
         score_vol = np.nan
 
-    # Weging & berekening
+    # Componenten en gewogen score
     components = {
-        "Sparen (saldo/inkomen)": (savings_rate, 0.40),
-        "Vaste-kosten aandeel":   (score_fixed,   0.20),
-        "Budgetoverschrijding":   (score_budget,  0.20),
-        "Trend t.o.v. vorige mnd":(score_trend,   0.10),
-        "Stabiliteit saldo":      (score_vol,     0.10),
+        "Sparen": (savings_rate, 0.40),
+        "Vaste-kosten": (score_fixed, 0.20),
+        "Budget": (score_budget, 0.20),  # vaak NaN → automatisch herwogen
+        "Trend": (score_trend, 0.10),
+        "Stabiliteit": (score_vol, 0.10),
     }
     avail = {k: v for k, (v, w) in components.items() if not pd.isna(v)}
     if not avail:
-        st.info("ℹ️ Onvoldoende gegevens om een gezondheidsscore te berekenen.")
-    else:
-        total_weight = sum([components[k][1] for k in avail.keys()])
-        score_0_1 = sum([components[k][0] * components[k][1] for k in avail.keys()]) / total_weight
-        score_100 = int(round(score_0_1 * 100))
+        continue
+    total_weight = sum([components[k][1] for k in avail.keys()])
+    score_0_1 = sum([components[k][0] * components[k][1] for k in avail.keys()]) / total_weight
+    score_100 = int(round(score_0_1 * 100))
 
-        if score_100 >= 80:
-            label, tone = "Uitstekend", "success"
-        elif score_100 >= 65:
-            label, tone = "Gezond", "success"
-        elif score_100 >= 50:
-            label, tone = "Aandacht", "warning"
-        else:
-            label, tone = "Kwetsbaar", "error"
+    scores_per_month.append({"Maand": ym.to_timestamp(), "Score": score_100})
 
-        fixed_pct_txt = f"{(_safe_div(abs(fixed_m), abs(inc_m)) * 100):.0f}%" if inc_m else "—"
-        save_pct_txt  = f"{(_safe_div(savings_eur, inc_m) * 100):.0f}%" if inc_m else "—"
+# Omzetten naar DataFrame
+df_scores = pd.DataFrame(scores_per_month).sort_values("Maand")
 
-        c1, c2 = st.columns([1, 2])
-        with c1:
-            st.metric("Gezondheidsscore", f"{score_100}/100", f"Sparen {save_pct_txt} · Vast {fixed_pct_txt}")
-        with c2:
-            fig_g = go.Figure(go.Indicator(
-                mode="gauge+number",
-                value=score_100,
-                number={'suffix': "/100"},
-                gauge={
-                    'axis': {'range': [0, 100]},
-                    'bar': {'thickness': 0.3},
-                    'steps': [
-                        {'range': [0, 50], 'color': '#fca5a5'},
-                        {'range': [50, 65], 'color': '#fcd34d'},
-                        {'range': [65, 80], 'color': '#a7f3d0'},
-                        {'range': [80, 100], 'color': '#86efac'},
-                    ],
-                }
-            ))
-            fig_g.update_layout(height=190, margin=dict(l=10, r=10, t=10, b=10))
-            st.plotly_chart(fig_g, use_container_width=True)
+if not df_scores.empty:
+    # Lijngrafiek
+    fig_line = px.line(
+        df_scores,
+        x="Maand", y="Score",
+        title="Financiële gezondheid per maand",
+        markers=True,
+        range_y=[0, 100]
+    )
+    # Kleurbalk voor zones
+    fig_line.add_hrect(y0=80, y1=100, fillcolor="green", opacity=0.1, line_width=0)
+    fig_line.add_hrect(y0=65, y1=80, fillcolor="lightgreen", opacity=0.1, line_width=0)
+    fig_line.add_hrect(y0=50, y1=65, fillcolor="yellow", opacity=0.1, line_width=0)
+    fig_line.add_hrect(y0=0, y1=50, fillcolor="red", opacity=0.1, line_width=0)
+    st.plotly_chart(fig_line, use_container_width=True)
 
-        with st.expander("ℹ️ Uitleg & componenten"):
-            rows = []
-            for naam, (val, w) in components.items():
-                rows.append({
-                    "Component": naam,
-                    "Score (0–1)": "—" if pd.isna(val) else f"{val:.2f}",
-                    "Weging": f"{int(components[naam][1]*100)}%"
-                })
-            st.write(pd.DataFrame(rows))
+    with st.expander("📄 Scores per maand"):
+        st.dataframe(df_scores, hide_index=True, use_container_width=True)
+else:
+    st.info("ℹ️ Onvoldoende data om een tijdlijn te berekenen.")
 
-        if tone == "success":
-            st.success(f"Status: {label}")
-        elif tone == "warning":
-            st.warning(f"Status: {label} — let op je kosten/budgetten.")
-        else:
-            st.error(f"Status: {label} — focus op sparen en vaste lasten.")
 
 
 
