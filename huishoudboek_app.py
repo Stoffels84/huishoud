@@ -193,14 +193,10 @@ else:
 
 
 # ============================================================
-# 🧭 Financiële gezondheidscore (0–100) voor de geselecteerde maand
+# 📈 Simpele financiële gezondheidsscore (inkomen & uitgaven)
 # ============================================================
-# ============================================================
-# 📈 Gezondheidsscore voor alle maanden (tijdlijn) — SALDO-methode
-# ============================================================
-st.subheader("📈 Financiële gezondheid door de tijd")
+st.subheader("📈 Simpele gezondheidsscore op basis van inkomen & uitgaven")
 
-# Helpers (standalone, zodat NameError niet kan optreden)
 def _clamp(x, lo=0.0, hi=1.0):
     try:
         return float(min(max(x, lo), hi))
@@ -210,99 +206,75 @@ def _clamp(x, lo=0.0, hi=1.0):
 def _safe_div(a, b):
     return np.nan if (b is None or b == 0 or pd.isna(b)) else a / b
 
-scores_per_month = []
+scores_simple = []
 
-# Eén groupby dat we hergebruiken
+# Groepeer alle data per jaar-maand
 gb = df.groupby(df["datum"].dt.to_period("M"), sort=True)
 
 for ym, df_month in gb:
     if df_month.empty:
         continue
 
-    # --- Basis (saldo) voor deze ym
+    # Inkomsten = categorie 'inkomsten loon'
     cat = df_month["categorie"].astype(str).str.strip().str.lower()
     is_loon = cat.eq("inkomsten loon")
+    inkomen = df_month[is_loon]["bedrag"].sum()
 
-    inc = df_month[is_loon]["bedrag"].sum()
-    fixed = df_month[
-        (df_month["vast/variabel"].astype(str).str.strip().str.title() == "Vast") & (~is_loon)
-    ]["bedrag"].sum()
-    var = df_month[
-        (df_month["vast/variabel"].astype(str).str.strip().str.title() == "Variabel") & (~is_loon)
-    ]["bedrag"].sum()
+    # Uitgaven = alles behalve inkomsten (negatief in jouw data)
+    uitgaven = df_month[~is_loon]["bedrag"].sum()
 
-    saldo = inc + fixed + var
+    # Spaarpercentage
+    saldo = inkomen + uitgaven  # uitgaven negatief → saldo = overschot
+    sparen_pct = _clamp(_safe_div(saldo, inkomen))  # 0..1
 
-    # Componenten
-    savings_rate = _clamp(_safe_div(saldo, inc))
-    fixed_ratio  = _safe_div(abs(fixed), abs(inc) if inc != 0 else np.nan)
-    score_fixed  = 1.0 if pd.isna(fixed_ratio) else (1.0 - _clamp((fixed_ratio - 0.5) / 0.5, 0, 1))
+    # Vaste lasten-ratio (optioneel, alleen als kolom 'vast/variabel' bestaat)
+    vaste_ratio = np.nan
+    if "vast/variabel" in df_month.columns:
+        vaste_lasten = df_month[
+            (df_month["vast/variabel"].astype(str).str.strip().str.title() == "Vast") & ~is_loon
+        ]["bedrag"].sum()
+        vaste_ratio = _safe_div(abs(vaste_lasten), abs(inkomen) if inkomen != 0 else np.nan)
 
-    # Budgethistoriek hebben we hier niet → overslaan (wordt herwogen)
-    score_budget = np.nan
+    # Scorecomponenten
+    # Sparen: 0 bij sparen_pct ≤ 0, 1 bij sparen_pct ≥ 0.2 (20%), lineair ertussen
+    score_sparen = _clamp(sparen_pct / 0.2, 0, 1)
 
-    # Trend t.o.v. vorige maand (saldo)
-    prev_ym = ym - 1  # Period('YYYY-MM') ondersteunt -1
-    if prev_ym in gb.groups:
-        df_prev = gb.get_group(prev_ym)
-        net_prev = df_prev["bedrag"].sum()
-    else:
-        net_prev = np.nan
+    # Vaste lasten: 1 bij ≤50% van inkomen, 0 bij ≥100%, lineair ertussen
+    score_vast = np.nan
+    if not pd.isna(vaste_ratio):
+        score_vast = 1.0 - _clamp((vaste_ratio - 0.5) / 0.5, 0, 1)
 
-    net_curr = saldo
-    denom_trend = max(abs(net_prev) if not pd.isna(net_prev) else 0, abs(inc), 1.0)
-    delta_net = net_curr - (net_prev if not pd.isna(net_prev) else 0.0)
-    score_trend = _clamp(0.5 + 0.5 * (delta_net / denom_trend))
-
-    # Stabiliteit op SALDO-basis (rolling laatste 6 maanden tot en met ym)
-    period_all = df["datum"].dt.to_period("M")
-    hist_saldo = (
-        df.loc[period_all <= ym]
-          .groupby(period_all)["bedrag"].sum()
-          .sort_index()
-    )
-    last6 = hist_saldo.tail(6)
-    if len(last6) >= 3 and last6.mean() != 0:
-        cv = last6.std(ddof=0) / abs(last6.mean())
-        score_vol = 1.0 - _clamp((cv - 0.10) / 0.40, 0, 1)
-    else:
-        score_vol = np.nan
-
-    # Weging & herweging
-    components = {
-        "Sparen":        (savings_rate, 0.40),
-        "Vaste-kosten":  (score_fixed,  0.20),
-        "Budget":        (score_budget, 0.20),  # NaN → automatisch herwogen
-        "Trend":         (score_trend,  0.10),
-        "Stabiliteit":   (score_vol,    0.10),
-    }
+    # Eindscore (50/50 weging, automatisch herwogen bij ontbrekende vaste lasten)
+    components = {"Sparen": (score_sparen, 0.5), "Vaste lasten": (score_vast, 0.5)}
     avail = {k: v for k, (v, w) in components.items() if not pd.isna(v)}
     if not avail:
         continue
     total_weight = sum([components[k][1] for k in avail.keys()])
     score_0_1 = sum([components[k][0] * components[k][1] for k in avail.keys()]) / total_weight
-    scores_per_month.append({"Maand": ym.to_timestamp(), "Score": int(round(score_0_1 * 100))})
+    scores_simple.append({"Maand": ym.to_timestamp(), "Score": int(round(score_0_1 * 100))})
 
-# Resultaat tonen
-df_scores = pd.DataFrame(scores_per_month).sort_values("Maand")
-if not df_scores.empty:
-    fig_line = px.line(
-        df_scores,
+# DataFrame met scores
+df_scores_simple = pd.DataFrame(scores_simple).sort_values("Maand")
+
+if not df_scores_simple.empty:
+    fig_simple = px.line(
+        df_scores_simple,
         x="Maand", y="Score",
-        title="Financiële gezondheid per maand",
+        title="Simpele financiële gezondheid per maand",
         markers=True,
         range_y=[0, 100]
     )
-    fig_line.add_hrect(y0=80, y1=100, fillcolor="green", opacity=0.1, line_width=0)
-    fig_line.add_hrect(y0=65, y1=80, fillcolor="lightgreen", opacity=0.1, line_width=0)
-    fig_line.add_hrect(y0=50, y1=65, fillcolor="yellow", opacity=0.1, line_width=0)
-    fig_line.add_hrect(y0=0,  y1=50, fillcolor="red", opacity=0.1, line_width=0)
-    st.plotly_chart(fig_line, use_container_width=True)
+    fig_simple.add_hrect(y0=80, y1=100, fillcolor="green", opacity=0.1, line_width=0)
+    fig_simple.add_hrect(y0=65, y1=80, fillcolor="lightgreen", opacity=0.1, line_width=0)
+    fig_simple.add_hrect(y0=50, y1=65, fillcolor="yellow", opacity=0.1, line_width=0)
+    fig_simple.add_hrect(y0=0,  y1=50, fillcolor="red", opacity=0.1, line_width=0)
+    st.plotly_chart(fig_simple, use_container_width=True)
 
-    with st.expander("📄 Scores per maand"):
-        st.dataframe(df_scores, hide_index=True, use_container_width=True)
+    with st.expander("📄 Simpele scores per maand"):
+        st.dataframe(df_scores_simple, hide_index=True, use_container_width=True)
 else:
-    st.info("ℹ️ Onvoldoende data om een tijdlijn te berekenen.")
+    st.info("ℹ️ Onvoldoende data om de simpele score te berekenen.")
+
 
 
 
