@@ -488,8 +488,7 @@ with colB:
 
         # Delta t.o.v. basis
         if perc_base is not None:
-            st.caption(f"Δ t.o.v. b
-
+            st.caption(f"Δ t.o.v. basis: {perc_sim - perc_base:.1f}%")
 
 
 
