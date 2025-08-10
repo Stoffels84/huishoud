@@ -215,10 +215,11 @@ else:
     fixed_m = df_maand[df_maand["vast/variabel"].astype(str).str.strip().str.title().eq("Vast") & ~is_loon_m]["bedrag"].sum()
     var_m   = df_maand[df_maand["vast/variabel"].astype(str).str.strip().str.title().eq("Variabel") & ~is_loon_m]["bedrag"].sum()
 
-    spend_fixed = abs(fixed_m)
-    spend_var   = abs(var_m)
-    spend_total = spend_fixed + spend_var
-    savings_eur = inc_m - spend_total
+    spend_fixed = fixed_m   # behoudt het teken
+    spend_var   = var_m     # behoudt het teken
+    saldo_maand = inc_m + spend_fixed + spend_var
+    savings_eur = saldo_maand  # dit is wat er echt overblijft
+
     savings_rate = _clamp(_safe_div(max(0.0, savings_eur), abs(inc_m) if inc_m != 0 else np.nan))  # 0..1
 
     # --- Aandeel vaste kosten (doel ≤ 50% van inkomen)
