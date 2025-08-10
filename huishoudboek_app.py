@@ -299,6 +299,15 @@ uitgaven_mnd = (
     .groupby("categorie")["bedrag"].sum().abs().sort_values(ascending=False)
 )
 
+uitgaven_mnd = (
+    df_filtered[
+        (df_filtered["maand_naam"] == geselecteerde_maand) &
+        (~df_filtered["categorie"].astype(str).str.lower().eq("inkomsten loon")) &
+        (df_filtered["vast/variabel"] == "Vast")
+    ]
+    .groupby("categorie")["bedrag"].sum().abs().sort_values(ascending=False)
+)
+
 cats = list(uitgaven_mnd.index)
 if "budget_state" not in st.session_state:
     st.session_state.budget_state = pd.DataFrame({"categorie": cats, "budget": np.nan})
