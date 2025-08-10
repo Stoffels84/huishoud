@@ -299,10 +299,18 @@ uitgaven_mnd = (
     .groupby("categorie")["bedrag"].sum().abs().sort_values(ascending=False)
 )
 
-# Alle vaste kosten-categorieën in de hele dataset
-vaste_cats = df[df["vast/variabel"].astype(str).str.strip().str.title() == "Vast"]["categorie"].astype(str).str.strip().str.title().dropna().unique()
+# --- Budgetten-sectie (volledig herschreven) ---
 
-# Uitgaven voor vaste kosten in de geselecteerde maand
+# 1. Alle vaste kosten-categorieën ophalen uit de volledige dataset
+vaste_cats = (
+    df[df["vast/variabel"].astype(str).str.strip().str.title() == "Vast"]
+      ["categorie"]
+      .astype(str).str.strip().str.title()
+      .dropna()
+      .unique()
+)
+
+# 2. Werkelijke uitgaven voor vaste kosten in de geselecteerde maand
 uitgaven_mnd = (
     df_filtered[
         (df_filtered["maand_naam"] == geselecteerde_maand) &
@@ -312,12 +320,72 @@ uitgaven_mnd = (
     .groupby("categorie")["bedrag"].sum().abs()
 )
 
-# Alle vaste categorieën in DataFrame zetten, ontbrekende op 0
+# 3. Alle vaste categorieën meenemen, ook zonder uitgaven
 uitgaven_mnd = (
-    pd.Series(0, index=sorted(vaste_cats))
-    .add(uitgaven_mnd, fill_value=0)
-    .sort_values(ascending=False)
+    pd.Series(0, index=sorted(vaste_cats), name="uitgave")
+      .add(uitgaven_mnd, fill_value=0)
+      .sort_values(ascending=False)
 )
+
+# 4. Lijst met categorieën voor budgetten
+cats = list(uitgaven_mnd.index)
+
+# 5. Budget DataFrame in session_state initialiseren
+if "budget_state" not in st.session_state:
+    st.session_state.budget_state = pd.DataFrame({"categorie": cats, "budget": np.nan})
+
+# 6. Oude en nieuwe categorieën samenvoegen
+prev = st.session_state.budget_state
+merged = (
+    pd.DataFrame({"categorie": cats})
+      .merge(prev, on="categorie", how="left")
+)
+
+st.session_state.budget_state = merged
+
+# 7. Budgetten combineren met werkelijke uitgaven
+budget_df = st.session_state.budget_state.copy()
+
+# Zorg dat kolomnamen kloppen
+if "categorie" not in budget_df.columns and "index" in budget_df.columns:
+    budget_df.rename(columns={"index": "categorie"}, inplace=True)
+
+# Join met uitgaven
+budget_join = (
+    budget_df.set_index("categorie")
+             .join(uitgaven_mnd.rename("uitgave"), how="left")
+             .reset_index()
+)
+
+budget_join["budget"] = pd.to_numeric(budget_join["budget"], errors="coerce")
+budget_join["uitgave"] = pd.to_numeric(budget_join["uitgave"], errors="coerce").fillna(0)
+budget_join["verschil"] = budget_join["budget"] - budget_join["uitgave"]
+
+# 8. Opgemaakte tabel
+from babel.numbers import format_currency
+def euro(x):
+    try:
+        return format_currency(x, 'EUR', locale='nl_NL')
+    except:
+        return "—"
+
+tabel = budget_join.assign(
+    Budget=budget_join["budget"].apply(lambda x: euro(x) if pd.notna(x) else "—"),
+    Uitgave=budget_join["uitgave"].apply(euro),
+    **{"Δ (budget - uitgave)": budget_join["verschil"].apply(lambda x: euro(x) if pd.notna(x) else "—")},
+    Status=np.where(
+        budget_join["budget"].notna() & (budget_join["uitgave"] > budget_join["budget"]),
+        "🚨 Over budget",
+        np.where(budget_join["budget"].notna(), "✅ Binnen budget", "—")
+    )
+)
+
+# 9. Weergeven
+kolommen = [k for k in ["categorie", "Budget", "Uitgave", "Δ (budget - uitgave)", "Status"] if k in tabel.columns]
+tabel = tabel.loc[:, kolommen].rename(columns={"categorie": "Categorie"})
+
+st.dataframe(tabel, use_container_width=True)
+
 
 
 cats = list(uitgaven_mnd.index)
