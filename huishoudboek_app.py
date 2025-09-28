@@ -327,6 +327,30 @@ with t_overzicht:
 # -------------- Maand --------------
 with t_maand:
     st.subheader(f"📆 Overzicht voor {geselecteerde_maand}")
+    # ---- TABBLAD MAAND ----
+with tab_maand:
+    st.header("📆 Maandoverzicht")
+
+    # Maandkeuze hier
+    aanwezig = df["maand_naam"].dropna().astype(str).unique().tolist()
+    beschikbare_maanden = [m for m in MAANDEN_NL if m in aanwezig]
+    default_maand = beschikbare_maanden[-1] if beschikbare_maanden else MAANDEN_NL[0]
+
+    geselecteerde_maand = st.selectbox(
+        "📆 Kies een maand",
+        beschikbare_maanden,
+        index=beschikbare_maanden.index(default_maand) if beschikbare_maanden else 0,
+        key="maand_select_tab",
+    )
+
+    # Filter toepassen
+    df_maand = df[df["maand_naam"] == geselecteerde_maand].copy()
+    if df_maand.empty:
+        st.warning("⚠️ Geen data voor deze maand.")
+        st.stop()
+
+    # ... rest van je maandoverzicht (KPI’s, grafieken, budgetten, prognose)
+
 
     # Trend vs vorige maand
     if not df_maand.empty:
