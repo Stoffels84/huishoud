@@ -369,34 +369,7 @@ with t_maand:
     c3.metric("📎 Variabele kosten (maand)", euro(uit_var_m))
     c4.metric("💰 Netto (maand)", euro(netto_m))
 
-    # -- (Optioneel) Trend t.o.v. vorige maand --
-    if st.toggle("Toon trend t.o.v. vorige maand", value=False, key="show_trend_maand"):
-        ref = df_maand["datum"].max()
-        prev_year, prev_month = ((ref.year - 1, 12) if ref.month == 1 else (ref.year, ref.month - 1))
-        df_prev = df[(df["datum"].dt.year == prev_year) & (df["datum"].dt.month == prev_month)].copy()
 
-        def total_of(dfin: pd.DataFrame, *, cat=None, vv=None):
-            d = dfin.copy()
-            cat_col = d["categorie"].astype(str).str.strip().str.lower()
-            income_mask = is_income(cat_col)
-            if cat == "inkomsten":
-                d = d[income_mask]
-            elif cat == "uitgaven":
-                d = d[~income_mask]
-            if vv is not None:
-                d = d[d["vast/variabel"].astype(str).str.strip().str.title() == vv]
-            return d["bedrag"].sum()
-
-        prev_ink  = total_of(df_prev, cat="inkomsten") if not df_prev.empty else 0.0
-        prev_vast = total_of(df_prev, vv="Vast")       if not df_prev.empty else 0.0
-        prev_var  = total_of(df_prev, vv="Variabel")   if not df_prev.empty else 0.0
-        prev_net  = prev_ink + prev_vast + prev_var
-
-        t1, t2, t3, t4 = st.columns(4)
-        t1.metric("📈 Inkomen (trend)",   euro(inkomen_m),  delta=euro(inkomen_m - prev_ink))
-        t2.metric("📌 Vaste kosten (trend)", euro(uit_vast_m), delta=euro(uit_vast_m - prev_vast))
-        t3.metric("📎 Variabele kosten (trend)", euro(uit_var_m),  delta=euro(uit_var_m - prev_var))
-        t4.metric("💰 Netto (trend)",    euro(netto_m),     delta=euro(netto_m - prev_net))
 
     # -- Topcategorieën in de maand --
     top = (
