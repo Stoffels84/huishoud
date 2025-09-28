@@ -328,7 +328,7 @@ with t_overzicht:
 with t_maand:
     st.subheader(f"📆 Overzicht voor {geselecteerde_maand}")
     # ---- TABBLAD MAAND ----
-with tab_maand:
+with t_maand:
     st.header("📆 Maandoverzicht")
 
     # Maandkeuze hier
