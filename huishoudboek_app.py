@@ -7,6 +7,21 @@ import plotly.express as px
 import plotly.graph_objects as go
 from pandas.api.types import CategoricalDtype
 
+
+import streamlit as st
+
+# Vraag om paswoord
+password = st.text_input("Voer het paswoord in:", type="password")
+
+# Controleer met secret
+if password == st.secrets["APP_PASSWORD"]:
+    st.success("Toegang toegestaan ✅")
+    st.write("Hier komt je app...")
+else:
+    st.error("Onjuist paswoord ❌")
+    st.stop()
+
+
 # ============================================================
 # ⚙️ App-config
 # ============================================================
